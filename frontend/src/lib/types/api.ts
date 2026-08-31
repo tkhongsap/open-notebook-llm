@@ -18,6 +18,26 @@ export interface NoteResponse {
   updated: string
 }
 
+export type NotebookArtifactKind =
+  | 'briefing_doc'
+  | 'study_guide'
+  | 'faq'
+  | 'timeline'
+  | 'mind_map'
+  | 'flashcards'
+  | 'quiz'
+
+export interface CreateNotebookArtifactRequest {
+  artifact_kind: NotebookArtifactKind
+  custom_instructions?: string
+  model_id?: string
+}
+
+export interface NotebookArtifactResponse extends NoteResponse {
+  artifact_kind: NotebookArtifactKind
+  command_id?: string | null
+}
+
 export interface SourceListResponse {
   id: string
   title: string | null

@@ -116,7 +116,10 @@ class Notebook(ObjectModel):
                 content = str(source_context).strip()
 
             if content:
-                context_blocks.append(f"## Source: {title}\n\n{content}")
+                source_id = source.id or "source:unknown"
+                context_blocks.append(
+                    f"## Source: {title} [{source_id}]\n\n{content}"
+                )
 
         for note in notes:
             note_context = note.get_context(context_size="long")
@@ -129,7 +132,8 @@ class Notebook(ObjectModel):
                 content = str(note_context).strip()
 
             if content:
-                context_blocks.append(f"## Note: {title}\n\n{content}")
+                note_id = note.id or "note:unknown"
+                context_blocks.append(f"## Note: {title} [{note_id}]\n\n{content}")
 
         return "\n\n".join(context_blocks)
 

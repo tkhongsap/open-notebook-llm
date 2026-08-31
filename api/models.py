@@ -212,6 +212,35 @@ class NoteResponse(BaseModel):
     command_id: Optional[str] = None
 
 
+NotebookArtifactKind = Literal[
+    "briefing_doc",
+    "study_guide",
+    "faq",
+    "timeline",
+    "mind_map",
+    "flashcards",
+    "quiz",
+]
+
+
+class NotebookArtifactCreate(BaseModel):
+    artifact_kind: NotebookArtifactKind = Field(
+        ..., description="NotebookLM-style Studio artifact to generate"
+    )
+    custom_instructions: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Optional focus, audience, or formatting guidance",
+    )
+    model_id: Optional[str] = Field(
+        None, description="Optional language-model override"
+    )
+
+
+class NotebookArtifactResponse(NoteResponse):
+    artifact_kind: NotebookArtifactKind
+
+
 # Embedding API models
 class EmbedRequest(BaseModel):
     item_id: str = Field(..., description="ID of the item to embed")

@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, StickyNote, Bot, User, MoreVertical, Trash2, ListChecks, ChevronDown } from 'lucide-react'
+import { Plus, Sparkles, Bot, User, MoreVertical, Trash2, ListChecks, ChevronDown } from 'lucide-react'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +25,11 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { CollapsibleColumn, createCollapseButton } from '@/components/notebooks/CollapsibleColumn'
 import { useNotebookColumnsStore } from '@/lib/stores/notebook-columns-store'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { useCreateNotebookArtifact } from '@/lib/hooks/use-artifacts'
+import { useCreateDialogs } from '@/lib/hooks/use-create-dialogs'
+import type { NotebookArtifactKind } from '@/lib/types/api'
+import { Separator } from '@/components/ui/separator'
+import { StudioActions } from './StudioActions'
 
 interface NotesColumnProps {
   notes?: NoteResponse[]
@@ -33,6 +38,7 @@ interface NotesColumnProps {
   contextSelections?: Record<string, NoteContextMode>
   onContextModeChange?: (noteId: string, mode: NoteContextMode) => void
   onBulkContextModeChange?: (action: NoteContextDefault) => void
+  hasContext?: boolean
 }
 
 export function NotesColumn({
@@ -41,7 +47,8 @@ export function NotesColumn({
   notebookId,
   contextSelections,
   onContextModeChange,
-  onBulkContextModeChange
+  onBulkContextModeChange,
+  hasContext = false,
 }: NotesColumnProps) {
   const { t, language } = useTranslation()
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -50,10 +57,12 @@ export function NotesColumn({
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
 
   const deleteNote = useDeleteNote()
+  const createArtifact = useCreateNotebookArtifact(notebookId)
+  const { openPodcastDialog } = useCreateDialogs()
 
   // Collapsible column state
   const { notesCollapsed, toggleNotes } = useNotebookColumnsStore()
-  const notesLabel = t('common.notes')
+  const notesLabel = t('studio.title')
   const collapseButton = useMemo(
     () => createCollapseButton(toggleNotes, notesLabel),
     [toggleNotes, notesLabel]
@@ -76,12 +85,20 @@ export function NotesColumn({
     }
   }
 
+  const handleGenerateArtifact = (artifactKind: NotebookArtifactKind) => {
+    createArtifact.mutate({ artifact_kind: artifactKind })
+  }
+
+  const pendingKind = createArtifact.isPending
+    ? createArtifact.variables?.artifact_kind ?? null
+    : null
+
   return (
     <>
       <CollapsibleColumn
         isCollapsed={notesCollapsed}
         onToggle={toggleNotes}
-        collapsedIcon={StickyNote}
+        collapsedIcon={Sparkles}
         collapsedLabel={notesLabel}
       >
         <Card className="h-full flex flex-col flex-1 overflow-hidden">
@@ -125,20 +142,50 @@ export function NotesColumn({
             </div>
           </CardHeader>
 
-          <CardContent className="flex-1 overflow-y-auto min-h-0">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <LoadingSpinner />
+          <CardContent className="flex-1 overflow-y-auto min-h-0 space-y-5">
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold">{t('studio.create')}</h3>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {t('studio.createDescription')}
+                </p>
               </div>
-            ) : !notes || notes.length === 0 ? (
-              <EmptyState
-                icon={StickyNote}
-                title={t('notebooks.noNotesYet')}
-                description={t('sources.createFirstNote')}
+              <StudioActions
+                disabled={!hasContext}
+                pendingKind={pendingKind}
+                onGenerate={handleGenerateArtifact}
+                onAudio={openPodcastDialog}
               />
-            ) : (
-              <div className="space-y-2">
-                {notes.map((note) => (
+              {!hasContext && (
+                <p className="rounded-lg bg-muted/55 px-3 py-2 text-xs text-muted-foreground">
+                  {t('studio.requiresContext')}
+                </p>
+              )}
+            </section>
+
+            <Separator />
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">{t('studio.savedArtifacts')}</h3>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {notes?.length ?? 0}
+                </span>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : !notes || notes.length === 0 ? (
+                <EmptyState
+                  icon={Sparkles}
+                  title={t('studio.emptyTitle')}
+                  description={t('studio.emptyDescription')}
+                />
+              ) : (
+                <div className="space-y-2">
+                  {notes.map((note) => (
                   <div
                     key={note.id}
                     className="p-3 border rounded-md bg-card shadow-none card-hover group relative cursor-pointer"
@@ -213,9 +260,10 @@ export function NotesColumn({
                       </p>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </section>
           </CardContent>
         </Card>
       </CollapsibleColumn>
