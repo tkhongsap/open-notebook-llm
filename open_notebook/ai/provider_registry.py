@@ -266,7 +266,7 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
         ),
         ProviderSpec(
             name="openai_compatible",
-            display_name="OpenAI Compatible",
+            display_name="Local AI / OpenAI Compatible",
             modalities=_ALL_MODALITIES,
             required_any_env=("OPENAI_COMPATIBLE_BASE_URL", "OPENAI_COMPATIBLE_API_KEY"),
             test_model=None,  # Dynamic - uses first available model

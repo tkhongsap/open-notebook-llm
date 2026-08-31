@@ -7,7 +7,9 @@ Clone the repository and run locally. **For developers and contributors.**
 - **Python 3.11+** - [Download](https://www.python.org/)
 - **Node.js 18+** - [Download](https://nodejs.org/)
 - **Git** - [Download](https://git-scm.com/)
-- **Docker** (for SurrealDB) - [Download](https://docker.com/)
+- **Docker** (recommended for SurrealDB) - [Download](https://docker.com/).
+  On Apple Silicon, `make database` installs a pinned, checksum-verified native
+  SurrealDB v2 binary under `.runtime/` when Docker is unavailable.
 - **uv** (Python package manager) - `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - API key from OpenAI or similar (or use Ollama for free)
 
@@ -88,8 +90,9 @@ make worker
 # or: uv run --env-file .env surreal-commands-worker --import-modules commands
 ```
 
-> `make start-all` starts Database + API + Worker + Frontend together; the steps
-> above run them individually so you can see each process's logs.
+> `make start-all` starts Database + API + Worker + Frontend as managed local
+> processes. Use `make status` to verify them and `make stop-all` for a clean,
+> PID-scoped shutdown. Logs are stored under `.runtime/open-notebook/logs/`.
 
 ### 7. Start Frontend
 
@@ -165,12 +168,18 @@ uv sync --python 3.11  # Use specific version
 
 Install Node.js from https://nodejs.org/
 
+The managed stack can also use the Node binary bundled in the locked Python
+environment when it is present.
+
 ### Database connection errors
 
 ```bash
-docker ps  # Check SurrealDB running
-docker logs surrealdb  # View logs
+make database-status
+make status
 ```
+
+Docker logs remain available with `docker compose logs surrealdb`; native local
+database logs are in `.runtime/surrealdb/logs/surrealdb.log`.
 
 ### Port 5055 already in use
 

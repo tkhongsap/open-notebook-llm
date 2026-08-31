@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "node start-server.js",
     "lint": "eslint src/",
     "test": "vitest run",
@@ -81,9 +81,9 @@
   },
   "overrides": {
     "ws": "8.21.0",
-    "brace-expansion": "1.1.15",
+    "brace-expansion": "1.1.18",
     "ajv": "6.15.0",
     "@eslint/plugin-kit": "0.7.2",
-    "postcss": "8.5.10"
+    "postcss": "8.5.26"
   }
 }

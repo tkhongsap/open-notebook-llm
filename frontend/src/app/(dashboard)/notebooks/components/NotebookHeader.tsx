@@ -52,8 +52,11 @@ export function NotebookHeader({ notebook }: NotebookHeaderProps) {
     <>
       <div className="border-b pb-6">
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
+          <div
+            data-testid="notebook-heading-row"
+            className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <InlineEdit
                 id="notebook-name"
                 name="notebook-name"
@@ -67,11 +70,12 @@ export function NotebookHeader({ notebook }: NotebookHeaderProps) {
                 <Badge variant="secondary">{t('notebooks.archived')}</Badge>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleArchiveToggle}
+                className="flex-1 sm:flex-none"
               >
                 {notebook.archived ? (
                   <>
@@ -89,7 +93,7 @@ export function NotebookHeader({ notebook }: NotebookHeaderProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowDeleteDialog(true)}
-                className="text-destructive hover:text-destructive"
+                className="flex-1 text-destructive hover:text-destructive sm:flex-none"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 {t('common.delete')}

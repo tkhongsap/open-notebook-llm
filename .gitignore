@@ -135,6 +135,9 @@ specs/
 
 .playwright-mcp/
 
+# Native local-development services, downloads, logs, and PID files.
+.runtime/
+
 
 
 *.local.yml

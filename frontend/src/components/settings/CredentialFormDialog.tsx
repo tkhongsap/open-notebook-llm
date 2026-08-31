@@ -18,6 +18,8 @@ import { useProviders } from '@/lib/hooks/use-providers'
 
 /** Default oMLX OpenAI base URL (port 11435 avoids SurrealDB on 8000). */
 const OMLX_DEFAULT_BASE_URL = 'http://localhost:11435/v1'
+/** Native LocalAISandbox gateway; intentionally loopback-only on the Mac host. */
+export const LOCAL_AI_DEFAULT_BASE_URL = 'http://127.0.0.1:4000/v1'
 
 interface CredentialFormDialogProps {
   open: boolean
@@ -86,7 +88,7 @@ export function CredentialFormDialog({
     // providerInfo keeps a stable reference for a given provider (react-query
     // caches the list for the whole session), so this only re-runs when the
     // dialog target or the fetched registry actually changes.
-  }, [credential, provider, providerInfo])
+  }, [credential, isOmlx, provider, providerInfo])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,11 +123,19 @@ export function CredentialFormDialog({
     }
   }
 
+  const applyLocalGatewayPreset = () => {
+    setName('LocalAISandbox')
+    setBaseUrl(LOCAL_AI_DEFAULT_BASE_URL)
+    setModalities(['language', 'embedding', 'speech_to_text', 'text_to_speech'])
+  }
+
   const isValid = isEditing
     ? true
     : isVertex
       ? name.trim() !== '' && project.trim() !== '' && location.trim() !== ''
-      : name.trim() !== '' && (!requiresApiKey || apiKey.trim() !== '')
+      : name.trim() !== ''
+        && (!isOpenAICompatible || baseUrl.trim() !== '')
+        && (!requiresApiKey || apiKey.trim() !== '')
 
   const docsUrl = providerInfo?.docs_url ?? undefined
 
@@ -153,6 +163,29 @@ export function CredentialFormDialog({
             />
             <p className="text-xs text-muted-foreground">{t('apiKeys.configNameHint')}</p>
           </div>
+
+          {isOpenAICompatible && !isEditing && (
+            <div className="rounded-xl border border-teal/20 bg-teal/5 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">{t('apiKeys.localGatewayTitle')}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {t('apiKeys.localGatewayDescription')}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={applyLocalGatewayPreset}
+                  disabled={isSubmitting}
+                  className="shrink-0"
+                >
+                  {t('apiKeys.useLocalGateway')}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Vertex fields */}
           {isVertex ? (
@@ -245,11 +278,18 @@ export function CredentialFormDialog({
                     ? 'http://localhost:11434'
                     : isOmlx
                       ? OMLX_DEFAULT_BASE_URL
-                      : 'https://api.example.com/v1'
+                      : isOpenAICompatible
+                        ? LOCAL_AI_DEFAULT_BASE_URL
+                        : 'https://api.example.com/v1'
                 }
                 disabled={isSubmitting}
               />
               <p className="text-xs text-muted-foreground">{t('apiKeys.baseUrlOverrideHint')}</p>
+              {isOpenAICompatible && (
+                <p className="text-xs text-muted-foreground">
+                  {t('apiKeys.localGatewayKeyHint')}
+                </p>
+              )}
             </div>
           )}
 

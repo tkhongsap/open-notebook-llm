@@ -18,10 +18,12 @@
 
 ---
 
-### 🏠 I want to run locally (Ollama or LMStudio, completely private)
+### 🏠 I want to run locally (native Metal, Ollama, or LM Studio)
 **5 minutes to running.** Keep everything private, on your machine. No costs.
 
 → [Local Quick Start](quick-start-local.md)
+
+**Apple Silicon native gateway or OpenRouter?** → [Local AI or OpenRouter](local-ai-or-openrouter.md)
 
 **Already have Ollama installed?** → [External Ollama Guide](quick-start-external-ollama.md)
 
@@ -48,7 +50,8 @@
 
 ## Prerequisites
 
-- **Docker**: All paths use Docker (free)
+- **Docker or native SurrealDB**: Docker is recommended for deployment; source
+  installs on Apple Silicon can bootstrap a pinned loopback-only database
 - **AI Provider**: Either a cloud API key OR use free local models (Ollama)
 
 ---
