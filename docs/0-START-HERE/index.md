@@ -25,6 +25,8 @@
 
 **Apple Silicon native gateway or OpenRouter?** → [Local AI or OpenRouter](local-ai-or-openrouter.md)
 
+**Want to prove the complete workflow?** → [End-to-End Smoke Test](e2e-smoke-test.md)
+
 **Already have Ollama installed?** → [External Ollama Guide](quick-start-external-ollama.md)
 
 ---
@@ -62,6 +64,7 @@
 2. Follow the 5-minute quick start
 3. Create your first notebook
 4. Start uploading documents!
+5. Run the [end-to-end smoke test](e2e-smoke-test.md)
 
 ---
 

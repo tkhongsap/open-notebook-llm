@@ -84,6 +84,10 @@ Every Studio output is saved as an AI note related to the notebook. Generated
 answers and artifacts are constrained to notebook context, but—as with any
 model-generated text—citations should still be inspected before high-stakes use.
 
+After configuration, run the [end-to-end smoke test](e2e-smoke-test.md) to
+verify ingestion, embeddings, grounded chat, citations, and Studio persistence
+with one small document.
+
 ## Deployment contract
 
 The repository's Docker image and Compose files remain the portable deployment
