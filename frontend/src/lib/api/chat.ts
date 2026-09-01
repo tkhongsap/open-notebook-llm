@@ -8,6 +8,7 @@ import {
   NotebookChatMessage,
   BuildContextRequest,
   BuildContextResponse,
+  ModelExecutionInfo,
 } from '@/lib/types/api'
 
 export const chatApi = {
@@ -52,6 +53,7 @@ export const chatApi = {
     const response = await apiClient.post<{
       session_id: string
       messages: NotebookChatMessage[]
+      model?: ModelExecutionInfo
     }>(
       `/chat/execute`,
       data

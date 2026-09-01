@@ -21,6 +21,7 @@ export function useSourceChat(sourceId: string) {
   const [messages, setMessages] = useState<SourceChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [contextIndicators, setContextIndicators] = useState<SourceChatContextIndicator | null>(null)
+  const [pendingModelOverride, setPendingModelOverride] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // Fetch sessions
@@ -72,9 +73,21 @@ export function useSourceChat(sourceId: string) {
   const updateSessionMutation = useMutation({
     mutationFn: ({ sessionId, data }: { sessionId: string, data: UpdateSourceChatSessionRequest }) =>
       sourceChatApi.updateSession(sourceId, sessionId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sourceChatSessions', sourceId] })
-      queryClient.invalidateQueries({ queryKey: ['sourceChatSession', sourceId, currentSessionId] })
+    onSuccess: (updatedSession, variables) => {
+      queryClient.setQueryData(
+        ['sourceChatSession', sourceId, variables.sessionId],
+        (existing: typeof currentSession) => existing
+          ? { ...existing, ...updatedSession }
+          : existing
+      )
+      queryClient.setQueryData(
+        ['sourceChatSessions', sourceId],
+        (existing: SourceChatSession[] | undefined) => existing?.map(session =>
+          session.id === updatedSession.id ? { ...session, ...updatedSession } : session
+        )
+      )
+      // The update response is authoritative. Avoid a refetch race that can
+      // briefly restore the old model override after the selector closes.
       toast.success(t('chat.sessionUpdated'))
     },
     onError: (err: unknown) => {
@@ -109,9 +122,13 @@ export function useSourceChat(sourceId: string) {
     if (!sessionId) {
       try {
         const defaultTitle = message.length > 30 ? `${message.substring(0, 30)}...` : message
-        const newSession = await sourceChatApi.createSession(sourceId, { title: defaultTitle })
+        const newSession = await sourceChatApi.createSession(sourceId, {
+          title: defaultTitle,
+          model_override: pendingModelOverride ?? undefined,
+        })
         sessionId = newSession.id
         setCurrentSessionId(sessionId)
+        setPendingModelOverride(null)
         queryClient.invalidateQueries({ queryKey: ['sourceChatSessions', sourceId] })
       } catch (err: unknown) {
         const error = err as { response?: { data?: { detail?: string } }, message?: string };
@@ -164,7 +181,8 @@ export function useSourceChat(sourceId: string) {
                     id: `ai-${Date.now()}`,
                     type: 'ai',
                     content: data.content || '',
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    model: data.model ?? null,
                   }
                   setMessages(prev => [...prev, aiMessage!])
                 } else {
@@ -202,7 +220,7 @@ export function useSourceChat(sourceId: string) {
       // Refetch session to get persisted messages
       refetchCurrentSession()
     }
-  }, [sourceId, currentSessionId, refetchCurrentSession, queryClient, t])
+  }, [sourceId, currentSessionId, pendingModelOverride, refetchCurrentSession, queryClient, t])
 
   // Cancel streaming
   const cancelStreaming = useCallback(() => {
@@ -228,6 +246,17 @@ export function useSourceChat(sourceId: string) {
     return updateSessionMutation.mutate({ sessionId, data })
   }, [updateSessionMutation])
 
+  const setModelOverride = useCallback(async (model: string | null) => {
+    if (currentSessionId) {
+      await updateSessionMutation.mutateAsync({
+        sessionId: currentSessionId,
+        data: { model_override: model },
+      })
+    } else {
+      setPendingModelOverride(model)
+    }
+  }, [currentSessionId, updateSessionMutation])
+
   // Delete session
   const deleteSession = useCallback((sessionId: string) => {
     return deleteSessionMutation.mutate(sessionId)
@@ -236,16 +265,18 @@ export function useSourceChat(sourceId: string) {
   return {
     // State
     sessions,
-    currentSession: sessions.find(s => s.id === currentSessionId),
+    currentSession: currentSession || sessions.find(s => s.id === currentSessionId),
     currentSessionId,
     messages,
     isStreaming,
     contextIndicators,
     loadingSessions,
+    pendingModelOverride,
     
     // Actions
     createSession,
     updateSession,
+    setModelOverride,
     deleteSession,
     switchSession,
     sendMessage,

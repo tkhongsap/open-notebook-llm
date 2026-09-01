@@ -15,12 +15,12 @@ export function useCreateNotebookArtifact(notebookId: string) {
   return useMutation({
     mutationFn: (data: CreateNotebookArtifactRequest) =>
       artifactsApi.create(notebookId, data),
-    onSuccess: () => {
+    onSuccess: (artifact) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notes(notebookId) })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebook(notebookId) })
       toast({
         title: t('common.success'),
-        description: t('studio.generateSuccess'),
+        description: `${t('studio.generateSuccess')} · ${t('modelRouting.generatedWith', { name: artifact.model.name })}`,
       })
     },
     onError: (error: unknown) => {

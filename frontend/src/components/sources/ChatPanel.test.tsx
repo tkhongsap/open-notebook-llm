@@ -107,4 +107,30 @@ describe('ChatPanel composer', () => {
 
     expect(onSendMessage).not.toHaveBeenCalled()
   })
+
+  it('shows persisted model provenance on an AI response', () => {
+    render(
+      <ChatPanel
+        messages={[{
+          id: 'message:one',
+          type: 'ai',
+          content: 'Grounded answer',
+          model: {
+            id: 'model:local',
+            name: 'sandbox/qwen',
+            provider: 'openai_compatible',
+            provider_display_name: 'Local AI / OpenAI Compatible',
+            location: 'local',
+            selection_reason: 'explicit',
+          },
+        }]}
+        isStreaming={false}
+        contextIndicators={null}
+        onSendMessage={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('modelRouting.usedModel')).toBeInTheDocument()
+    expect(screen.getByText('modelRouting.localBadge')).toBeInTheDocument()
+  })
 })

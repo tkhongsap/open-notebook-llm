@@ -4,6 +4,23 @@ Open Notebook supports an explicit private-local path and an explicit cloud
 path. Credentials and model defaults are selected by you; the application does
 not silently fail over from a local model to a cloud provider.
 
+Set the deployment guard in `.env` before startup:
+
+```bash
+# Workstation that must never send model context to a cloud provider
+OPEN_NOTEBOOK_MODEL_ROUTING_POLICY=local-only
+
+# Hosted demo that can only reach cloud providers
+# OPEN_NOTEBOOK_MODEL_ROUTING_POLICY=cloud-only
+
+# Deliberately allow both registered paths (the default)
+# OPEN_NOTEBOOK_MODEL_ROUTING_POLICY=hybrid
+```
+
+The policy is an allow/deny boundary, not a priority list. If the selected model
+is blocked, unconfigured, or unavailable, the request fails visibly; it is not
+sent to a different provider.
+
 ## Start the application from source
 
 ```bash
@@ -69,6 +86,20 @@ For an explicit cloud configuration:
 This separation makes cost and privacy boundaries visible. A notebook stays on
 the selected local default until you select a cloud model or change a default.
 
+## Select a model per workflow
+
+Chat and Studio show registered language models in two groups:
+
+- **Private & local** for Ollama, oMLX, and user-controlled compatible endpoints;
+- **Frontier cloud** for OpenRouter and other hosted provider APIs.
+
+Unavailable or policy-blocked choices remain visible but disabled, so an
+operator can distinguish a missing credential from a deployment rule. Choosing
+a cloud model displays the provider boundary before the request is sent. Chat
+answers store and display the exact model/provider provenance; Studio reports
+the model used when generation completes. The system default remains available
+as an explicit choice and is resolved under the same policy.
+
 ## Notebook workflow now available
 
 - text, file, URL, audio, video, and supported web sources;
@@ -106,6 +137,12 @@ contract as long as the platform supports persistent volumes and long-running
 workers. A cloud container cannot reach the Mac's `127.0.0.1`; use OpenRouter or
 an explicitly deployed OpenAI-compatible inference endpoint for hosted use.
 Never publish the local Metal gateway directly to the public internet.
+
+For a disposable Replit demonstration, follow the
+[Replit deployment profile](../../deploy/replit/README.md). Replit's published
+filesystem is not durable, so use the embedded database only for throwaway demo
+content or connect the app to durable SurrealDB/object storage before treating
+it as a real deployment.
 
 Before a deployment, run the complete verification gate documented in
 [Testing](../7-DEVELOPMENT/testing.md) and build the production image locally:
