@@ -263,6 +263,45 @@ jobs:
           rm -rf /tmp/.buildx-cache-dev-single
           mv /tmp/.buildx-cache-dev-single-new /tmp/.buildx-cache-dev-single
 
+  # A manually requested development build is also the pre-merge execution
+  # path for deployment smoke tests. New standalone workflows are not
+  # dispatchable until they land on the default branch, while this registered
+  # workflow can test any branch immediately.
+  deployment-smoke:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate production Compose configuration
+        run: >-
+          docker compose
+          --env-file deploy/docker/.env.production.example
+          -f deploy/docker/docker-compose.production.yml
+          config --quiet
+
+      - name: Build regular and embedded image targets
+        run: |
+          docker build --target runtime -t open-notebook:deployment-smoke .
+          docker build --target single -t open-notebook:deployment-smoke-single .
+
+      - name: Run fresh-install image acceptance
+        run: >-
+          scripts/release-test/release-image-test.sh
+          fresh open-notebook:deployment-smoke
+
+      - name: Run image contract probes
+        run: >-
+          scripts/release-test/release-image-test.sh
+          probe open-notebook:deployment-smoke
+
+      - name: Show container diagnostics on failure
+        if: failure()
+        run: |
+          docker ps -a
+          docker compose ls
+
   summary:
     needs: [extract-version, build-regular, build-single]
     runs-on: ubuntu-latest
