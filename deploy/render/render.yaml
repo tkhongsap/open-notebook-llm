@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: open-notebook
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /healthz
+    maxShutdownDelaySeconds: 120
+    envVars:
+      - key: PORT
+        value: 8502
+      - key: FRONTEND_BIND_HOST
+        value: 0.0.0.0
+      - key: API_HOST
+        value: 127.0.0.1
+      - key: INTERNAL_API_URL
+        value: http://127.0.0.1:5055
+      - key: OPEN_NOTEBOOK_REQUIRE_SECURITY
+        value: "true"
+      - key: OPEN_NOTEBOOK_ENCRYPTION_KEY
+        generateValue: true
+      - key: OPEN_NOTEBOOK_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SURREAL_EMBEDDED
+        value: "true"
+      - key: SURREAL_DATA_PATH
+        value: /app/data/surrealdb
+      - key: SURREAL_URL
+        value: ws://127.0.0.1:8000/rpc
+      - key: SURREAL_USER
+        value: open_notebook_admin
+      - key: SURREAL_PASSWORD
+        generateValue: true
+      - key: SURREAL_NAMESPACE
+        value: open_notebook
+      - key: SURREAL_DATABASE
+        value: open_notebook
+      - key: OPEN_NOTEBOOK_WORKER_MAX_TASKS
+        value: 3
+    disk:
+      name: open-notebook-data
+      mountPath: /app/data
+      sizeGB: 10

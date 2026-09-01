@@ -81,6 +81,11 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 # Install uv using the official method
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Keep the regular image usable with an external SurrealDB while also allowing
+# single-service PaaS deployments to opt into the pinned embedded server with
+# SURREAL_EMBEDDED=true. The default remains external DB mode.
+COPY --from=surreal-binary /surreal /usr/local/bin/surreal
+
 WORKDIR /app
 
 # Copy the virtual environment from the backend builder
@@ -105,6 +110,7 @@ ENV VIRTUAL_ENV=/app/.venv
 ENV TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
 # Bind the API to all interfaces (IPv4). Set API_HOST=:: for IPv6 dual-stack environments
 ENV API_HOST=0.0.0.0
+ENV SURREAL_EMBEDDED=false
 
 # Caches for the opt-in heavy extraction runtimes (Docling, Crawl4AI local).
 # These live UNDER /app/data so the user's volume mount persists them across
@@ -116,42 +122,34 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/app/data/.cache/playwright
 ENV HF_HOME=/app/data/.cache/huggingface
 
 # Data directory (volume-mounted by users) and supervisor log directory
-RUN mkdir -p /app/data /var/log/supervisor \
+RUN mkdir -p /app/data /mydata /var/log/supervisor \
     && chmod +x /app/scripts/wait-for-api.sh /app/scripts/docker-entrypoint.sh
 
 # Copy supervisord configuration (shared programs: api, worker, frontend)
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN cat /app/supervisord.surrealdb.conf >> /etc/supervisor/conf.d/supervisord.conf
 
 # Expose ports for Frontend and API
 EXPOSE 8502 5055
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+    CMD curl --fail --silent http://127.0.0.1:8502/healthz >/dev/null || exit 1
+
 # Runtime API URL Configuration
-# The API_URL environment variable can be set at container runtime to configure
-# where the frontend should connect to the API. This allows the same Docker image
-# to work in different deployment scenarios without rebuilding.
+# By default, browser requests remain same-origin and Next.js proxies /api to
+# INTERNAL_API_URL. Set API_URL only when exposing the API on another origin.
 #
-# If not set, the system will auto-detect based on incoming requests.
-# Set API_URL when using reverse proxies or custom domains.
-#
-# Example: docker run -e API_URL=https://your-domain.com/api ...
+# Example: docker run -e API_URL=https://api.your-domain.com ...
 
 # The entrypoint installs any opt-in heavy runtimes (Docling, Crawl4AI local)
 # enabled via OPEN_NOTEBOOK_ENABLE_* before handing off to CMD (supervisord).
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
-# Stage 5: Single-container variant (adds SurrealDB on top of the shared runtime)
+# Stage 5: Single-container variant (enables the embedded SurrealDB program)
 # Build with: docker build --target single .
 FROM runtime-base AS single
-
-# Install SurrealDB (copied from pinned v2 image to match docker-compose.yml)
-COPY --from=surreal-binary /surreal /usr/local/bin/surreal
-
-# SurrealDB data directory (volume-mounted by users)
-RUN mkdir -p /mydata
-
-# Enable the surrealdb program in supervisord (appended to the shared config)
-RUN cat /app/supervisord.surrealdb.conf >> /etc/supervisor/conf.d/supervisord.conf
+ENV SURREAL_EMBEDDED=true
 
 # Stage 6 (default): Regular multi-container image (SurrealDB runs externally).
 # Kept last so a plain `docker build .` produces this variant.

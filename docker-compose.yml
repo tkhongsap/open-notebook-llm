@@ -20,6 +20,16 @@ services:
       - ./surreal_data:/mydata
     environment:
       - SURREAL_EXPERIMENTAL_GRAPHQL=true
+      - SURREAL_USER=${SURREAL_USER:-root}
+      - SURREAL_PASSWORD=${SURREAL_PASSWORD:-root}
+      - SURREAL_NAMESPACE=${SURREAL_NAMESPACE:-open_notebook}
+      - SURREAL_DATABASE=${SURREAL_DATABASE:-open_notebook}
+    healthcheck:
+      test: ["CMD", "surreal", "is-ready", "--endpoint", "http://127.0.0.1:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     restart: always
     pull_policy: always
 
@@ -27,11 +37,15 @@ services:
     image: lfnovo/open_notebook:v1-latest
     ports:
       - "8502:8502"  # Web UI
-      - "5055:5055"  # REST API
+      - "127.0.0.1:5055:5055"  # REST API, loopback-only; UI proxies /api
     environment:
       # REQUIRED: Change this to your own secret string
       # This encrypts your API keys in the database
-      - OPEN_NOTEBOOK_ENCRYPTION_KEY=change-me-to-a-secret-string
+      - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
+      - OPEN_NOTEBOOK_PASSWORD=${OPEN_NOTEBOOK_PASSWORD:-}
+      - OPEN_NOTEBOOK_REQUIRE_SECURITY=${OPEN_NOTEBOOK_REQUIRE_SECURITY:-false}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8502}
+      - INTERNAL_API_URL=http://127.0.0.1:5055
 
       # Database connection. SURREAL_USER / SURREAL_PASSWORD default to root:root
       # for local use; override them in a .env file before exposing the instance
@@ -39,8 +53,8 @@ services:
       - SURREAL_URL=ws://surrealdb:8000/rpc
       - SURREAL_USER=${SURREAL_USER:-root}
       - SURREAL_PASSWORD=${SURREAL_PASSWORD:-root}
-      - SURREAL_NAMESPACE=open_notebook
-      - SURREAL_DATABASE=open_notebook
+      - SURREAL_NAMESPACE=${SURREAL_NAMESPACE:-open_notebook}
+      - SURREAL_DATABASE=${SURREAL_DATABASE:-open_notebook}
 
       # OPTIONAL: heavy extraction runtimes, installed on first startup when
       # enabled (downloads are cached on the ./notebook_data volume, so only the
@@ -56,6 +70,15 @@ services:
     volumes:
       - ./notebook_data:/app/data
     depends_on:
-      - surrealdb
+      surrealdb:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8502/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
     restart: always
     pull_policy: always

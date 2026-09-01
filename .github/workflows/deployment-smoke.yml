@@ -1,0 +1,54 @@
+name: Deployment Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "deploy/**"
+      - "scripts/backup_restore.py"
+      - "scripts/release-test/**"
+      - "supervisord*.conf"
+      - "api/main.py"
+      - "frontend/src/app/healthz/**"
+      - ".github/workflows/deployment-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  image-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate production Compose configuration
+        run: >-
+          docker compose
+          --env-file deploy/docker/.env.production.example
+          -f deploy/docker/docker-compose.production.yml
+          config --quiet
+
+      - name: Build regular and embedded image targets
+        run: |
+          docker build --target runtime -t open-notebook:deployment-smoke .
+          docker build --target single -t open-notebook:deployment-smoke-single .
+
+      - name: Run fresh-install image acceptance
+        run: >-
+          scripts/release-test/release-image-test.sh
+          fresh open-notebook:deployment-smoke
+
+      - name: Run image contract probes
+        run: >-
+          scripts/release-test/release-image-test.sh
+          probe open-notebook:deployment-smoke
+
+      - name: Show container diagnostics on failure
+        if: failure()
+        run: |
+          docker ps -a
+          docker compose ls

@@ -60,6 +60,7 @@ from open_notebook.exceptions import (
     UnsupportedTypeException,
 )
 from open_notebook.utils.encryption import get_secret_from_env
+from open_notebook.utils.security_config import validate_production_security
 
 
 def _parse_cors_origins(raw: str) -> list[str]:
@@ -190,6 +191,10 @@ async def lifespan(app: FastAPI):
     # Startup: Security checks
     logger.info("Starting API initialization...")
 
+    # Hosted deployments opt into fail-closed validation. Local development
+    # keeps the existing warning-based behavior unless explicitly enabled.
+    validate_production_security(os.environ)
+
     # Security check: Encryption key
     if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):
         logger.warning(
@@ -240,6 +245,7 @@ app.add_middleware(
     excluded_paths=[
         "/",
         "/health",
+        "/ready",
         "/docs",
         "/openapi.json",
         "/redoc",
@@ -416,3 +422,18 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.get("/ready")
+async def readiness():
+    """Report whether the API and its required database are ready for traffic."""
+
+    database = await config.check_database_health()
+    if database.get("status") != "online":
+        return JSONResponse(
+            status_code=503,
+            # This route is intentionally unauthenticated for platform probes.
+            # Keep connection details in server logs, not the public response.
+            content={"status": "not_ready", "database": {"status": "offline"}},
+        )
+    return {"status": "ready", "database": database}
