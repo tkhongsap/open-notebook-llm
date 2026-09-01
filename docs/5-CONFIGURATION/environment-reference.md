@@ -8,11 +8,13 @@ Comprehensive list of all environment variables available in Open Notebook.
 
 | Variable | Required? | Default | Description |
 |----------|-----------|---------|-------------|
-| `API_URL` | No | Auto-detected | URL where frontend reaches API (e.g., http://localhost:5055) |
+| `API_URL` | No | Same origin | Public URL where the browser reaches a separately exposed API. Leave unset to use the safer Next.js `/api` proxy. |
 | `INTERNAL_API_URL` | No | http://localhost:5055 | Internal API URL for Next.js server-side proxying |
 | `API_CLIENT_TIMEOUT` | No | 300 | Client timeout in seconds (how long to wait for API response) |
+| `INTERNAL_API_PROXY_TIMEOUT_MS` | No | 600000 | Next.js server-side `/api` rewrite timeout in milliseconds. Raise this together with `NEXT_PUBLIC_API_TIMEOUT_MS` for local model calls that need more than ten minutes. |
 | `OPEN_NOTEBOOK_PASSWORD` | No | None | Password to protect Open Notebook instance |
 | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | **Yes** | None | Secret string to encrypt credentials stored in database (any string works). **Required** for the credential system. Supports Docker secrets via `_FILE` suffix. |
+| `OPEN_NOTEBOOK_REQUIRE_SECURITY` | No | `false` | When true, fail startup unless encryption, login, database, and CORS settings meet the production security contract. Hosted templates enable this. |
 | `FRONTEND_BIND_HOST` | No | `0.0.0.0` (in Docker) | Network interface for Next.js to bind to. Default `0.0.0.0` ensures accessibility from reverse proxies. (Replaces `HOSTNAME`, which container runtimes such as Podman override with the container/pod hostname, causing Next.js to bind to the wrong address) |
 | `API_HOST` | No | `0.0.0.0` (in Docker) | Network interface for the API (uvicorn) to bind to. Set to `::` for IPv6 dual-stack environments (listens on IPv6 and, on Linux defaults, IPv4 too) |
 | `OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB` | No | 100 | Maximum request body size (in MB) the API will accept, enforced before auth/routing. Raise this if you need to upload larger audio/video files. A fronting reverse proxy's own limit (e.g. nginx `client_max_body_size`) still applies and should be raised to match. |
@@ -30,6 +32,8 @@ Comprehensive list of all environment variables available in Open Notebook.
 | `SURREAL_PASSWORD` | Yes | root | SurrealDB password |
 | `SURREAL_NAMESPACE` | Yes | open_notebook | SurrealDB namespace |
 | `SURREAL_DATABASE` | Yes | open_notebook | SurrealDB database name |
+| `SURREAL_EMBEDDED` | No | `false` | Start the pinned SurrealDB process inside the application image. Intended for single-service PaaS deployments only. |
+| `SURREAL_DATA_PATH` | No | `/mydata` | Directory used by embedded SurrealDB. Set `/app/data/surrealdb` when one persistent volume must protect all state. |
 
 ---
 
@@ -62,6 +66,7 @@ Comprehensive list of all environment variables available in Open Notebook.
 | `ESPERANTO_LLM_TIMEOUT` | No | 60 | LLM inference timeout in seconds |
 | `ESPERANTO_SSL_VERIFY` | No | true | Verify SSL certificates (false = development only) |
 | `ESPERANTO_SSL_CA_BUNDLE` | No | None | Path to custom CA certificate bundle |
+| `OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS` | No | 2048 | Maximum output tokens for a source transformation such as Dense Summary. Lower this for slow local reasoning models so one transformation does not monopolize a sequential worker; valid range is 128-32768. |
 
 ---
 

@@ -33,6 +33,7 @@ function makeEpisode(overrides: Partial<PodcastEpisode> = {}): PodcastEpisode {
       speakers: [],
     },
     briefing: 'briefing',
+    notebook_ids: [],
     job_status: 'completed',
     ...overrides,
   }

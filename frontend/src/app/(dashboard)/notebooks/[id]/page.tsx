@@ -16,7 +16,7 @@ import { useIsDesktop } from '@/lib/hooks/use-media-query'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FileText, StickyNote, MessageSquare } from 'lucide-react'
+import { FileText, Sparkles, MessageSquare } from 'lucide-react'
 import {
   applyBulkSourceContext,
   applyBulkNoteContext,
@@ -56,8 +56,8 @@ export default function NotebookPage() {
   // Detect desktop to avoid double-mounting ChatColumn
   const isDesktop = useIsDesktop()
 
-  // Mobile tab state (Sources, Notes, or Chat)
-  const [mobileActiveTab, setMobileActiveTab] = useState<'sources' | 'notes' | 'chat'>('chat')
+  // Mobile tab state mirrors the NotebookLM workspace: Sources, Chat, Studio.
+  const [mobileActiveTab, setMobileActiveTab] = useState<'sources' | 'chat' | 'studio'>('chat')
 
   // Context selection state
   const [contextSelections, setContextSelections] = useState<ContextSelections>({
@@ -163,19 +163,19 @@ export default function NotebookPage() {
           {!isDesktop && (
             <>
               <div className="lg:hidden mb-4">
-                <Tabs value={mobileActiveTab} onValueChange={(value) => setMobileActiveTab(value as 'sources' | 'notes' | 'chat')}>
+                  <Tabs value={mobileActiveTab} onValueChange={(value) => setMobileActiveTab(value as 'sources' | 'chat' | 'studio')}>
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="sources" className="gap-2">
                       <FileText className="h-4 w-4" />
                       {t('navigation.sources')}
                     </TabsTrigger>
-                    <TabsTrigger value="notes" className="gap-2">
-                      <StickyNote className="h-4 w-4" />
-                      {t('common.notes')}
-                    </TabsTrigger>
                     <TabsTrigger value="chat" className="gap-2">
                       <MessageSquare className="h-4 w-4" />
                       {t('common.chat')}
+                    </TabsTrigger>
+                    <TabsTrigger value="studio" className="gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      {t('studio.title')}
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -198,14 +198,16 @@ export default function NotebookPage() {
                     fetchNextPage={fetchNextPage}
                   />
                 )}
-                {mobileActiveTab === 'notes' && (
+                {mobileActiveTab === 'studio' && (
                   <NotesColumn
                     notes={notes}
                     isLoading={notesLoading}
                     notebookId={notebookId}
+                    notebookName={notebook.name}
                     contextSelections={contextSelections.notes}
                     onContextModeChange={handleNoteContextModeChange}
                     onBulkContextModeChange={handleBulkNoteContext}
+                    hasContext={Boolean((sources && sources.length > 0) || (notes && notes.length > 0))}
                   />
                 )}
                 {mobileActiveTab === 'chat' && (
@@ -245,28 +247,30 @@ export default function NotebookPage() {
               />
             </div>
 
-            {/* Notes Column */}
-            <div className={cn(
-              'transition-all duration-150',
-              notesCollapsed ? 'w-12 flex-shrink-0' : 'flex-none basis-1/3'
-            )}>
-              <NotesColumn
-                notes={notes}
-                isLoading={notesLoading}
-                notebookId={notebookId}
-                contextSelections={contextSelections.notes}
-                onContextModeChange={handleNoteContextModeChange}
-                onBulkContextModeChange={handleBulkNoteContext}
-              />
-            </div>
-
-            {/* Chat Column - always expanded, takes remaining space */}
-            <div className="transition-all duration-150 flex-1 min-w-0 lg:pr-6 lg:-mr-6">
+            {/* Chat Column - central research surface */}
+            <div className="transition-all duration-150 flex-1 min-w-0">
               <ChatColumn
                 notebookId={notebookId}
                 contextSelections={contextSelections}
                 sources={sources}
                 sourcesLoading={sourcesLoading}
+              />
+            </div>
+
+            {/* Studio Column */}
+            <div className={cn(
+              'transition-all duration-150',
+              notesCollapsed ? 'w-12 flex-shrink-0' : 'flex-none basis-[31%]'
+            )}>
+              <NotesColumn
+                notes={notes}
+                isLoading={notesLoading}
+                notebookId={notebookId}
+                notebookName={notebook.name}
+                contextSelections={contextSelections.notes}
+                onContextModeChange={handleNoteContextModeChange}
+                onBulkContextModeChange={handleBulkNoteContext}
+                hasContext={Boolean((sources && sources.length > 0) || (notes && notes.length > 0))}
               />
             </div>
           </div>

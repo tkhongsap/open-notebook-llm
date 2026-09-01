@@ -38,7 +38,7 @@ class RecentlyViewedResponse(BaseModel):
 # Search models
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query")
-    type: Literal["text", "vector"] = Field("text", description="Search type")
+    type: Literal["text", "vector", "hybrid"] = Field("text", description="Search type")
     limit: int = Field(100, description="Maximum number of results", ge=1, le=1000)
     search_sources: bool = Field(True, description="Include sources in search")
     search_notes: bool = Field(True, description="Include notes in search")
@@ -210,6 +210,35 @@ class NoteResponse(BaseModel):
     created: str
     updated: str
     command_id: Optional[str] = None
+
+
+NotebookArtifactKind = Literal[
+    "briefing_doc",
+    "study_guide",
+    "faq",
+    "timeline",
+    "mind_map",
+    "flashcards",
+    "quiz",
+]
+
+
+class NotebookArtifactCreate(BaseModel):
+    artifact_kind: NotebookArtifactKind = Field(
+        ..., description="NotebookLM-style Studio artifact to generate"
+    )
+    custom_instructions: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Optional focus, audience, or formatting guidance",
+    )
+    model_id: Optional[str] = Field(
+        None, description="Optional language-model override"
+    )
+
+
+class NotebookArtifactResponse(NoteResponse):
+    artifact_kind: NotebookArtifactKind
 
 
 # Embedding API models

@@ -156,6 +156,17 @@ class TestProvidersEndpoint:
         assert openai["docs_url"].startswith("https://")
         assert isinstance(openai["env_configured"], bool)
 
+        local_compatible = next(
+            p for p in data if p["name"] == "openai_compatible"
+        )
+        assert local_compatible["display_name"] == "Local AI / OpenAI Compatible"
+        assert set(local_compatible["modalities"]) == {
+            "language",
+            "embedding",
+            "speech_to_text",
+            "text_to_speech",
+        }
+
 
 class TestCreateCredentialRequestValidation:
     @pytest.mark.parametrize("provider", KNOWN_GOOD_PROVIDERS)

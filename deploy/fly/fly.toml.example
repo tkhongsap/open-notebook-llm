@@ -1,0 +1,48 @@
+# Copy to fly.toml and replace the app name and CORS origin before deployment.
+app = "replace-with-your-open-notebook-app"
+primary_region = "sin"
+kill_signal = "SIGTERM"
+kill_timeout = "120s"
+
+[build]
+  dockerfile = "Dockerfile"
+  build-target = "runtime"
+
+[env]
+  PORT = "8502"
+  FRONTEND_BIND_HOST = "0.0.0.0"
+  API_HOST = "127.0.0.1"
+  INTERNAL_API_URL = "http://127.0.0.1:5055"
+  OPEN_NOTEBOOK_REQUIRE_SECURITY = "true"
+  CORS_ORIGINS = "https://replace-with-your-open-notebook-app.fly.dev"
+  SURREAL_EMBEDDED = "true"
+  SURREAL_DATA_PATH = "/app/data/surrealdb"
+  SURREAL_URL = "ws://127.0.0.1:8000/rpc"
+  SURREAL_USER = "open_notebook_admin"
+  SURREAL_NAMESPACE = "open_notebook"
+  SURREAL_DATABASE = "open_notebook"
+  OPEN_NOTEBOOK_WORKER_MAX_TASKS = "3"
+
+[[mounts]]
+  source = "open_notebook_data"
+  destination = "/app/data"
+  initial_size = "10gb"
+
+[http_service]
+  internal_port = 8502
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "90s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "2gb"

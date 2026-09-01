@@ -364,9 +364,9 @@ User Question
   ↓
 Plan Search Strategy (LLM generates searches)
   ↓
-Execute Searches (vector + text search)
+Execute Searches (text + vector candidates)
   ↓
-Score & Rank Results
+Reciprocal-rank fusion + deterministic evidence reranking
   ↓
 Provide Answers (LLM synthesizes from results)
   ↓
@@ -381,10 +381,14 @@ Output (final answer)
   "question": str,
   "strategy": SearchStrategy,
   "answers": List[str],
+  "evidence_ids": List[str],
   "final_answer": str,
-  "sources_used": List[Source],
 }
 ```
+
+**Grounding**: Only bounded exact excerpts reach answer models. Subanswers and
+the final answer must cite IDs from their retrieved evidence; fabricated or
+missing citations fail closed.
 
 **Streaming**: Uses `astream()` to emit updates in real-time (strategy → answers → final answer)
 

@@ -1,10 +1,15 @@
-.PHONY: run frontend check ruff database lint api start-all stop-all status clean-cache worker worker-start worker-stop worker-restart
+.PHONY: run frontend check ruff database database-stop database-status lint api start-all stop-all status clean-cache worker worker-start worker-stop worker-restart
 .PHONY: docker-buildx-prepare docker-buildx-clean docker-buildx-reset
 .PHONY: docker-push docker-push-latest docker-release docker-build-local tag export-docs
 .PHONY: release-test release-stack release-stack-down
 
 # Get version from pyproject.toml
 VERSION := $(shell grep -m1 version pyproject.toml | cut -d'"' -f2)
+
+# Prefer the Node binary bundled by the locked Python environment on macOS.
+# It can load npm's unsigned native extensions under hardened runtime rules;
+# callers can still override this with `make ... NODE=/path/to/node`.
+NODE ?= $(shell candidate=$$(find .venv/lib -path '*/site-packages/nodejs_wheel/bin/node' -type f 2>/dev/null | head -1); if test -n "$$candidate"; then printf '%s/%s' '$(CURDIR)' "$$candidate"; else command -v node; fi)
 
 # Image names for both registries
 DOCKERHUB_IMAGE := lfnovo/open_notebook
@@ -14,14 +19,32 @@ GHCR_IMAGE := ghcr.io/lfnovo/open-notebook
 PLATFORMS := linux/amd64,linux/arm64
 
 database:
-	docker compose up -d surrealdb
+	@if command -v docker >/dev/null 2>&1; then \
+		docker compose up -d surrealdb; \
+	else \
+		uv run python scripts/local_database.py start; \
+	fi
+
+database-stop:
+	@if command -v docker >/dev/null 2>&1; then \
+		docker compose stop surrealdb; \
+	else \
+		uv run python scripts/local_database.py stop; \
+	fi
+
+database-status:
+	@if command -v docker >/dev/null 2>&1; then \
+		docker compose ps surrealdb; \
+	else \
+		uv run python scripts/local_database.py status; \
+	fi
 
 run:
 	@echo "⚠️  Warning: Starting frontend only. For full functionality, use 'make start-all'"
-	cd frontend && npm run dev
+	cd frontend && $(NODE) node_modules/next/dist/bin/next dev --hostname 127.0.0.1
 
 frontend:
-	cd frontend && npm run dev
+	cd frontend && $(NODE) node_modules/next/dist/bin/next dev --hostname 127.0.0.1
 
 lint:
 	uv run python -m mypy .
@@ -174,42 +197,13 @@ worker-restart: worker-stop
 
 # === Service Management ===
 start-all:
-	@echo "🚀 Starting Open Notebook (Database + API + Worker + Frontend)..."
-	@echo "📊 Starting SurrealDB..."
-	@docker compose -f docker-compose.dev.yml up -d surrealdb
-	@sleep 3
-	@echo "🔧 Starting API backend..."
-	@uv run run_api.py &
-	@sleep 3
-	@echo "⚙️ Starting background worker..."
-	@uv run --env-file .env surreal-commands-worker --import-modules commands --max-tasks "$${OPEN_NOTEBOOK_WORKER_MAX_TASKS:-5}" &
-	@sleep 2
-	@echo "🌐 Starting Next.js frontend..."
-	@echo "✅ All services started!"
-	@echo "📱 Frontend: http://localhost:3000"
-	@echo "🔗 API: http://localhost:5055"
-	@echo "📚 API Docs: http://localhost:5055/docs"
-	cd frontend && npm run dev
+	@uv run python scripts/local_stack.py start
 
 stop-all:
-	@echo "🛑 Stopping all Open Notebook services..."
-	@pkill -f "next dev" || true
-	@pkill -f "surreal-commands-worker" || true
-	@pkill -f "run_api.py" || true
-	@pkill -f "uvicorn api.main:app" || true
-	@docker compose down
-	@echo "✅ All services stopped!"
+	@uv run python scripts/local_stack.py stop
 
 status:
-	@echo "📊 Open Notebook Service Status:"
-	@echo "Database (SurrealDB):"
-	@docker compose ps surrealdb 2>/dev/null || echo "  ❌ Not running"
-	@echo "API Backend:"
-	@pgrep -f "run_api.py\|uvicorn api.main:app" >/dev/null && echo "  ✅ Running" || echo "  ❌ Not running"
-	@echo "Background Worker:"
-	@pgrep -f "surreal-commands-worker" >/dev/null && echo "  ✅ Running" || echo "  ❌ Not running"
-	@echo "Next.js Frontend:"
-	@pgrep -f "next dev" >/dev/null && echo "  ✅ Running" || echo "  ❌ Not running"
+	@uv run python scripts/local_stack.py status
 
 # === Documentation Export ===
 export-docs:

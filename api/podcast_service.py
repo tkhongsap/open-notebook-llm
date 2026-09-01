@@ -1,12 +1,14 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from surreal_commands import get_command_status, submit_command
 
+from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import Notebook
 from open_notebook.podcasts.models import EpisodeProfile, PodcastEpisode, SpeakerProfile
+from open_notebook.utils.model_utils import full_model_dump
 
 
 class PodcastGenerationRequest(BaseModel):
@@ -17,6 +19,7 @@ class PodcastGenerationRequest(BaseModel):
     episode_name: str
     content: Optional[str] = None
     notebook_id: Optional[str] = None
+    notebook_ids: List[str] = Field(default_factory=list)
     briefing_suffix: Optional[str] = None
 
 
@@ -39,6 +42,7 @@ class PodcastService:
         speaker_profile_name: str,
         episode_name: str,
         notebook_id: Optional[str] = None,
+        notebook_ids: Optional[List[str]] = None,
         content: Optional[str] = None,
         briefing_suffix: Optional[str] = None,
     ) -> str:
@@ -54,6 +58,38 @@ class PodcastService:
             speaker_profile = await SpeakerProfile.resolve(speaker_profile_name)
             if not speaker_profile:
                 raise ValueError(f"Speaker profile '{speaker_profile_name}' not found")
+
+            missing_models = []
+            if not episode_profile.outline_llm:
+                missing_models.append("outline language model")
+            if not episode_profile.transcript_llm:
+                missing_models.append("transcript language model")
+            if not speaker_profile.voice_model:
+                missing_models.append("text-to-speech voice model")
+            if missing_models:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Podcast profile setup is incomplete: configure "
+                        + ", ".join(missing_models)
+                        + "."
+                    ),
+                )
+
+            normalized_notebook_ids = list(
+                dict.fromkeys(
+                    [
+                        notebook_ref
+                        for notebook_ref in [notebook_id, *(notebook_ids or [])]
+                        if notebook_ref
+                    ]
+                )
+            )
+
+            # Validate notebook references before they become durable episode
+            # metadata. A request with supplied content still needs valid IDs.
+            for notebook_ref in normalized_notebook_ids:
+                await Notebook.get(notebook_ref)
 
             # Get content from notebook if not provided directly
             if not content and notebook_id:
@@ -83,7 +119,32 @@ class PodcastService:
                 "episode_name": episode_name,
                 "content": str(content),
                 "briefing_suffix": briefing_suffix,
+                "notebook_ids": normalized_notebook_ids,
             }
+
+            briefing = episode_profile.default_briefing
+            if briefing_suffix:
+                briefing += f"\n\nAdditional instructions: {briefing_suffix}"
+
+            # Create the durable queue item before submitting the command. The
+            # Episodes query can now show "Pending" immediately instead of
+            # racing the worker's first database write.
+            episode = PodcastEpisode(
+                name=episode_name,
+                episode_profile=full_model_dump(episode_profile.model_dump()),
+                speaker_profile=full_model_dump(speaker_profile.model_dump()),
+                briefing=briefing,
+                content=str(content),
+                command=None,
+                notebook_ids=[
+                    ensure_record_id(value) for value in normalized_notebook_ids
+                ],
+                audio_file=None,
+                transcript=None,
+                outline=None,
+            )
+            await episode.save()
+            command_args["episode_id"] = str(episode.id)
 
             # Ensure command modules are imported before submitting
             # This is needed because submit_command validates against local registry
@@ -91,20 +152,39 @@ class PodcastService:
                 import commands.podcast_commands  # noqa: F401
             except ImportError as import_err:
                 logger.error(f"Failed to import podcast commands: {import_err}")
+                await episode.delete()
                 raise ValueError("Podcast commands not available")
 
             # Submit command to surreal-commands
-            job_id = submit_command("open_notebook", "generate_podcast", command_args)
+            try:
+                job_id = submit_command("open_notebook", "generate_podcast", command_args)
+            except Exception:
+                await episode.delete()
+                raise
 
             # Convert RecordID to string if needed
             if not job_id:
+                await episode.delete()
                 raise ValueError("Failed to get job_id from submit_command")
             job_id_str = str(job_id)
+            episode.command = ensure_record_id(job_id_str)
+            try:
+                await episode.save()
+            except Exception as link_error:
+                # The worker receives episode_id and repairs this link as its
+                # first write. Do not report a failed submission for a job that
+                # is already queued and cannot safely be recalled here.
+                logger.warning(
+                    f"Podcast job {job_id_str} submitted but the immediate "
+                    f"episode link update failed: {link_error}"
+                )
             logger.info(
                 f"Submitted podcast generation job: {job_id_str} for episode '{episode_name}'"
             )
             return job_id_str
 
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Failed to submit podcast generation job: {e}")
             raise HTTPException(
@@ -137,9 +217,17 @@ class PodcastService:
             raise HTTPException(status_code=500, detail="Failed to get job status")
 
     @staticmethod
-    async def list_episodes() -> list:
+    async def list_episodes(notebook_id: Optional[str] = None) -> list:
         """List all podcast episodes"""
         try:
+            if notebook_id:
+                await Notebook.get(notebook_id)
+                rows = await repo_query(
+                    "SELECT * FROM episode WHERE $notebook_id IN notebook_ids "
+                    "ORDER BY created DESC",
+                    {"notebook_id": ensure_record_id(notebook_id)},
+                )
+                return [PodcastEpisode(**row) for row in rows]
             episodes = await PodcastEpisode.get_all(order_by="created desc")
             return episodes
         except Exception as e:

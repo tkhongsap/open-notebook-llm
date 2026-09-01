@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger
+from pydantic import Field
 from surreal_commands import CommandInput, CommandOutput, command
 
 from open_notebook.config import PODCASTS_FOLDER
@@ -50,6 +51,8 @@ class PodcastGenerationInput(CommandInput):
     episode_name: str
     content: str
     briefing_suffix: Optional[str] = None
+    notebook_ids: list[str] = Field(default_factory=list)
+    episode_id: Optional[str] = None
 
 
 class PodcastGenerationOutput(CommandOutput):
@@ -168,6 +171,24 @@ async def generate_podcast_command(
         for ep_name in list(episode_profiles_dict.keys()):
             ep_dict = episode_profiles_dict[ep_name]
 
+            # podcast-creator validates every configured profile, even when
+            # only one profile was requested for this job. Keep unfinished
+            # profiles out of that global validation so an unrelated setup
+            # draft cannot prevent a ready profile from generating audio.
+            missing_llm_fields = [
+                field
+                for field in ("outline_llm", "transcript_llm")
+                if not ep_dict.get(field)
+            ]
+            if missing_llm_fields:
+                logger.warning(
+                    f"Episode profile '{ep_name}' is missing "
+                    f"{', '.join(missing_llm_fields)}, removing from config "
+                    "to prevent validation errors"
+                )
+                del episode_profiles_dict[ep_name]
+                continue
+
             # Since migration 20, speaker_config stores a record ID (and is
             # None when the referenced speaker profile no longer exists).
             # Rewrite it back to the speaker name for podcast-creator; drop
@@ -218,21 +239,28 @@ async def generate_podcast_command(
         # Remove profiles that fail resolution to prevent validation errors.
         for sp_name in list(speaker_profiles_dict.keys()):
             sp_dict = speaker_profiles_dict[sp_name]
-            if sp_dict.get("voice_model"):
-                try:
-                    prov, model, conf = await _resolve_model_config(
-                        str(sp_dict["voice_model"])
-                    )
-                    sp_dict["tts_provider"] = prov
-                    sp_dict["tts_model"] = model
-                    sp_dict["tts_config"] = conf
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to resolve TTS for speaker profile '{sp_name}', "
-                        f"removing from config to prevent validation errors: {e}"
-                    )
-                    del speaker_profiles_dict[sp_name]
-                    continue
+            if not sp_dict.get("voice_model"):
+                logger.warning(
+                    f"Speaker profile '{sp_name}' has no voice_model, "
+                    "removing from config to prevent validation errors"
+                )
+                del speaker_profiles_dict[sp_name]
+                continue
+
+            try:
+                prov, model, conf = await _resolve_model_config(
+                    str(sp_dict["voice_model"])
+                )
+                sp_dict["tts_provider"] = prov
+                sp_dict["tts_model"] = model
+                sp_dict["tts_config"] = conf
+            except Exception as e:
+                logger.warning(
+                    f"Failed to resolve TTS for speaker profile '{sp_name}', "
+                    f"removing from config to prevent validation errors: {e}"
+                )
+                del speaker_profiles_dict[sp_name]
+                continue
 
             # Per-speaker TTS overrides
             for speaker in sp_dict.get("speakers", []):
@@ -254,20 +282,41 @@ async def generate_podcast_command(
         if input_data.briefing_suffix:
             briefing += f"\n\nAdditional instructions: {input_data.briefing_suffix}"
 
-        # Create the record for the episode and associate with the ongoing command
-        episode = PodcastEpisode(
-            name=input_data.episode_name,
-            episode_profile=full_model_dump(episode_profile.model_dump()),
-            speaker_profile=full_model_dump(speaker_profile.model_dump()),
-            command=ensure_record_id(input_data.execution_context.command_id)
-            if input_data.execution_context
-            else None,
-            briefing=briefing,
-            content=input_data.content,
-            audio_file=None,
-            transcript=None,
-            outline=None,
-        )
+        # The API creates a durable pending episode before queuing the job so
+        # Studio can show it immediately. Legacy/direct command submissions do
+        # not include episode_id, so retain the old create-on-worker behavior.
+        if input_data.episode_id:
+            episode = await PodcastEpisode.get(input_data.episode_id)
+            episode.name = input_data.episode_name
+            episode.episode_profile = full_model_dump(episode_profile.model_dump())
+            episode.speaker_profile = full_model_dump(speaker_profile.model_dump())
+            episode.command = (
+                ensure_record_id(input_data.execution_context.command_id)
+                if input_data.execution_context
+                else episode.command
+            )
+            episode.briefing = briefing
+            episode.content = input_data.content
+            episode.notebook_ids = [
+                ensure_record_id(value) for value in input_data.notebook_ids
+            ]
+        else:
+            episode = PodcastEpisode(
+                name=input_data.episode_name,
+                episode_profile=full_model_dump(episode_profile.model_dump()),
+                speaker_profile=full_model_dump(speaker_profile.model_dump()),
+                command=ensure_record_id(input_data.execution_context.command_id)
+                if input_data.execution_context
+                else None,
+                briefing=briefing,
+                content=input_data.content,
+                notebook_ids=[
+                    ensure_record_id(value) for value in input_data.notebook_ids
+                ],
+                audio_file=None,
+                transcript=None,
+                outline=None,
+            )
         await episode.save()
 
         # SECURITY NOTE for future work: podcast_creator also supports

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { getInternalApiProxyTimeout } from "./src/lib/api-proxy-timeout";
 
 // Next.js dev server blocks cross-origin requests (including the HMR
 // websocket) from any host not in this list, to guard against DNS
@@ -20,6 +21,9 @@ const nextConfig: NextConfig = {
     // Increase proxy body size limit for file uploads (default is 10MB)
     // This allows larger files to be uploaded through the /api/* rewrite proxy to FastAPI
     proxyClientMaxBodySize: '100mb',
+    // Next's rewrite proxy otherwise closes slow local-LLM requests after its
+    // 30-second default, even though the browser client allows ten minutes.
+    proxyTimeout: getInternalApiProxyTimeout(),
   } as NextConfig['experimental'],
 
   // API Rewrites: Proxy /api/* requests to FastAPI backend

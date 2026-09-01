@@ -6,6 +6,7 @@ without heavy mocking of the actual processing logic.
 """
 
 from datetime import datetime
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,7 +17,9 @@ from open_notebook.domain.notebook import Source
 from open_notebook.graphs.prompt import PatternChainState, graph
 from open_notebook.graphs.tools import get_current_timestamp
 from open_notebook.graphs.transformation import (
+    DEFAULT_TRANSFORMATION_MAX_TOKENS,
     TransformationState,
+    get_transformation_max_tokens,
     run_transformation,
 )
 from open_notebook.graphs.transformation import (
@@ -153,6 +156,53 @@ class TestTransformationGraph:
         assert transformation_graph is not None
         assert hasattr(transformation_graph, "invoke")
         assert hasattr(transformation_graph, "ainvoke")
+
+    def test_transformation_token_limit_defaults_safely(self, monkeypatch):
+        """Source processing has a bounded default for verbose local models."""
+        monkeypatch.delenv("OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS", raising=False)
+
+        assert get_transformation_max_tokens() == DEFAULT_TRANSFORMATION_MAX_TOKENS
+
+    @pytest.mark.parametrize("value", ["not-a-number", "0", "32769"])
+    def test_transformation_token_limit_rejects_invalid_values(
+        self, monkeypatch, value
+    ):
+        monkeypatch.setenv("OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS", value)
+
+        assert get_transformation_max_tokens() == DEFAULT_TRANSFORMATION_MAX_TOKENS
+
+    @pytest.mark.asyncio
+    @patch(
+        "open_notebook.graphs.transformation.provision_langchain_model",
+        new_callable=AsyncMock,
+    )
+    async def test_run_transformation_passes_configured_token_limit(
+        self, mock_provision, monkeypatch
+    ):
+        """The configured ceiling reaches the model call that blocked ingestion."""
+        monkeypatch.setenv("OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS", "512")
+        chain = MagicMock()
+        chain.ainvoke = AsyncMock(return_value=SimpleNamespace(content="A summary"))
+        mock_provision.return_value = chain
+
+        source = MagicMock(spec=Source)
+        source.full_text = "Source text"
+        source.add_insight = AsyncMock()
+        transformation = MagicMock()
+        transformation.prompt = "Summarize this source"
+        transformation.title = "Dense Summary"
+
+        result = await run_transformation(
+            {"source": source, "transformation": transformation},
+            {"configurable": {"model_id": "model:local"}},
+        )
+
+        assert result == {"output": "A summary"}
+        assert mock_provision.await_args.kwargs["max_tokens"] == 512
+        assert mock_provision.await_args.kwargs[
+            "openai_compatible_extra_body"
+        ] == {"chat_template_kwargs": {"enable_thinking": False}}
+        source.add_insight.assert_awaited_once_with("Dense Summary", "A summary")
 
 
 # ============================================================================

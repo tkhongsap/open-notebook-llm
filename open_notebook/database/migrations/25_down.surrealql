@@ -1,0 +1,2 @@
+REMOVE INDEX IF EXISTS idx_episode_notebooks ON TABLE episode;
+REMOVE FIELD IF EXISTS notebook_ids ON TABLE episode;

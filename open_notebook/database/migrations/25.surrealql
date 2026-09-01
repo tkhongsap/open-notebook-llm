@@ -1,0 +1,9 @@
+-- Migration 25: retain the notebooks that produced an Audio Overview.
+--
+-- Podcast generation can combine more than one notebook. Persisting the
+-- record references lets the notebook Studio show only its own episodes and
+-- keeps the association intact across restarts and deployments.
+
+DEFINE FIELD IF NOT EXISTS notebook_ids ON TABLE episode TYPE array<record<notebook>> DEFAULT [];
+UPDATE episode SET notebook_ids = [] WHERE notebook_ids = NONE;
+DEFINE INDEX IF NOT EXISTS idx_episode_notebooks ON TABLE episode COLUMNS notebook_ids CONCURRENTLY;

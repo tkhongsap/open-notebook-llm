@@ -1,7 +1,10 @@
+import os
+
 from ai_prompter import Prompter
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
+from loguru import logger
 from typing_extensions import TypedDict
 
 from open_notebook.ai.provision import provision_langchain_model
@@ -11,6 +14,47 @@ from open_notebook.exceptions import OpenNotebookError
 from open_notebook.utils import clean_thinking_content
 from open_notebook.utils.error_classifier import classify_error
 from open_notebook.utils.text_utils import extract_text_content
+
+DEFAULT_TRANSFORMATION_MAX_TOKENS = 2048
+MIN_TRANSFORMATION_MAX_TOKENS = 128
+MAX_TRANSFORMATION_MAX_TOKENS = 32768
+
+
+def get_transformation_max_tokens() -> int:
+    """Return a safe output-token ceiling for source transformations.
+
+    Transformations run inside the source-processing command. Leaving a very
+    large ceiling here lets verbose or reasoning-heavy local models monopolize
+    a single-worker deployment for many minutes, which makes ingestion appear
+    stuck and prevents chat or Studio from using the new source.
+    """
+    raw_value = os.getenv("OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS", "").strip()
+    if not raw_value:
+        return DEFAULT_TRANSFORMATION_MAX_TOKENS
+
+    try:
+        value = int(raw_value)
+    except ValueError:
+        logger.warning(
+            "Ignoring invalid OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS={!r}; "
+            "using {}",
+            raw_value,
+            DEFAULT_TRANSFORMATION_MAX_TOKENS,
+        )
+        return DEFAULT_TRANSFORMATION_MAX_TOKENS
+
+    if not MIN_TRANSFORMATION_MAX_TOKENS <= value <= MAX_TRANSFORMATION_MAX_TOKENS:
+        logger.warning(
+            "Ignoring out-of-range OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS={}; "
+            "expected {}..{}, using {}",
+            value,
+            MIN_TRANSFORMATION_MAX_TOKENS,
+            MAX_TRANSFORMATION_MAX_TOKENS,
+            DEFAULT_TRANSFORMATION_MAX_TOKENS,
+        )
+        return DEFAULT_TRANSFORMATION_MAX_TOKENS
+
+    return value
 
 
 class TransformationState(TypedDict):
@@ -48,7 +92,10 @@ async def run_transformation(state: dict, config: RunnableConfig) -> dict:
             str(payload),
             config.get("configurable", {}).get("model_id"),
             "transformation",
-            max_tokens=8192,
+            max_tokens=get_transformation_max_tokens(),
+            openai_compatible_extra_body={
+                "chat_template_kwargs": {"enable_thinking": False}
+            },
         )
 
         response = await chain.ainvoke(payload)

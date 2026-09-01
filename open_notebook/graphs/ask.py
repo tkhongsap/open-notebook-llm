@@ -10,8 +10,14 @@ from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
 from open_notebook.ai.provision import provision_langchain_model
-from open_notebook.domain.notebook import vector_search
 from open_notebook.exceptions import OpenNotebookError
+from open_notebook.retrieval import (
+    INSUFFICIENT_EVIDENCE_ANSWER,
+    enforce_grounded_answer,
+    extract_reference_ids,
+    hybrid_search,
+    prepare_grounding_results,
+)
 from open_notebook.utils import clean_thinking_content
 from open_notebook.utils.error_classifier import classify_error
 from open_notebook.utils.text_utils import extract_text_content
@@ -21,9 +27,9 @@ class SubGraphState(TypedDict):
     question: str
     term: str
     instructions: str
-    results: dict
+    results: list[dict]
     answer: str
-    ids: list  # Added for provide_answer function
+    ids: list[str]
 
 
 class Search(BaseModel):
@@ -45,6 +51,7 @@ class ThreadState(TypedDict):
     question: str
     strategy: Strategy
     answers: Annotated[list, operator.add]
+    evidence_ids: Annotated[list, operator.add]
     final_answer: str
 
 
@@ -99,17 +106,15 @@ async def trigger_queries(state: ThreadState, config: RunnableConfig):
 
 async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
     try:
-        payload = state
-        # if state["type"] == "text":
-        #     results = text_search(state["term"], 10, True, True)
-        # else:
-        results = await vector_search(state["term"], 10, True, True)
-        if len(results) == 0:
-            return {"answers": []}
-        payload["results"] = results
-        ids = [r["id"] for r in results]
-        payload["ids"] = ids
-        system_prompt = Prompter(prompt_template="ask/query_process").render(data=payload)  # type: ignore[arg-type]
+        results = await hybrid_search(state["term"], 10, True, True)
+        grounding_results = prepare_grounding_results(results)
+        if not grounding_results:
+            return {"answers": [], "evidence_ids": []}
+        ids = [str(result["id"]) for result in grounding_results]
+        payload = {**state, "results": grounding_results, "ids": ids}
+        system_prompt = Prompter(prompt_template="ask/query_process").render(
+            data=payload
+        )  # type: ignore[arg-type]
         model = await provision_langchain_model(
             system_prompt,
             config.get("configurable", {}).get("answer_model"),
@@ -118,7 +123,13 @@ async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
         )
         ai_message = await model.ainvoke(system_prompt)
         ai_content = extract_text_content(ai_message.content)
-        return {"answers": [clean_thinking_content(ai_content)]}
+        grounded_answer = enforce_grounded_answer(
+            clean_thinking_content(ai_content), ids
+        )
+        if grounded_answer == INSUFFICIENT_EVIDENCE_ANSWER:
+            return {"answers": [], "evidence_ids": []}
+        cited_ids = extract_reference_ids(grounded_answer)
+        return {"answers": [grounded_answer], "evidence_ids": cited_ids}
     except OpenNotebookError:
         raise
     except Exception as e:
@@ -128,6 +139,9 @@ async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
 
 async def write_final_answer(state: ThreadState, config: RunnableConfig) -> dict:
     try:
+        evidence_ids = list(dict.fromkeys(state.get("evidence_ids", [])))
+        if not state.get("answers") or not evidence_ids:
+            return {"final_answer": INSUFFICIENT_EVIDENCE_ANSWER}
         system_prompt = Prompter(prompt_template="ask/final_answer").render(data=state)  # type: ignore[arg-type]
         model = await provision_langchain_model(
             system_prompt,
@@ -137,7 +151,11 @@ async def write_final_answer(state: ThreadState, config: RunnableConfig) -> dict
         )
         ai_message = await model.ainvoke(system_prompt)
         final_content = extract_text_content(ai_message.content)
-        return {"final_answer": clean_thinking_content(final_content)}
+        return {
+            "final_answer": enforce_grounded_answer(
+                clean_thinking_content(final_content), evidence_ids
+            )
+        }
     except OpenNotebookError:
         raise
     except Exception as e:

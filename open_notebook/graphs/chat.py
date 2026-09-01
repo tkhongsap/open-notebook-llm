@@ -43,7 +43,13 @@ def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict
                 asyncio.set_event_loop(new_loop)
                 return new_loop.run_until_complete(
                     provision_langchain_model(
-                        str(payload), model_id, "chat", max_tokens=8192
+                        str(payload),
+                        model_id,
+                        "chat",
+                        max_tokens=8192,
+                        openai_compatible_extra_body={
+                            "chat_template_kwargs": {"enable_thinking": False}
+                        },
                     )
                 )
             finally:
@@ -67,6 +73,9 @@ def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict
                     model_id,
                     "chat",
                     max_tokens=8192,
+                    openai_compatible_extra_body={
+                        "chat_template_kwargs": {"enable_thinking": False}
+                    },
                 )
             )
 

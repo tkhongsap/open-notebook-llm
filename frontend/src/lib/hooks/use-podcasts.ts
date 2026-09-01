@@ -39,12 +39,12 @@ function hasActiveEpisodes(episodes: PodcastEpisode[]) {
   })
 }
 
-export function usePodcastEpisodes(options?: { autoRefresh?: boolean }) {
-  const { autoRefresh = true } = options ?? {}
+export function usePodcastEpisodes(options?: { autoRefresh?: boolean; notebookId?: string }) {
+  const { autoRefresh = true, notebookId } = options ?? {}
 
   const query = useQuery({
-    queryKey: QUERY_KEYS.podcastEpisodes,
-    queryFn: podcastsApi.listEpisodes,
+    queryKey: QUERY_KEYS.podcastEpisodes(notebookId),
+    queryFn: () => podcastsApi.listEpisodes(notebookId),
     refetchInterval: (current) => {
       if (!autoRefresh) {
         return false
@@ -96,7 +96,7 @@ export function useRetryPodcastEpisode() {
   return useMutation({
     mutationFn: (episodeId: string) => podcastsApi.retryEpisode(episodeId),
     onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      await queryClient.refetchQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.retryStarted'),
         description: t('podcasts.retryStartedDesc'),
@@ -120,7 +120,7 @@ export function useDeletePodcastEpisode() {
   return useMutation({
     mutationFn: (episodeId: string) => podcastsApi.deleteEpisode(episodeId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.episodeDeleted'),
         description: t('podcasts.episodeDeletedDesc'),
@@ -158,7 +158,7 @@ export function useCreateEpisodeProfile() {
       podcastsApi.createEpisodeProfile(payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.episodeProfiles })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.profileCreated'),
         description: t('podcasts.profileCreatedDesc', { name: data.name }),
@@ -189,7 +189,7 @@ export function useUpdateEpisodeProfile() {
     }) => podcastsApi.updateEpisodeProfile(profileId, payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.episodeProfiles })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.profileUpdated'),
         description: t('podcasts.profileUpdatedDesc', { name: data.name }),
@@ -215,7 +215,7 @@ export function useDeleteEpisodeProfile() {
       podcastsApi.deleteEpisodeProfile(profileId),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.episodeProfiles })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.profileDeleted'),
         description: t('podcasts.profileDeletedDesc', { name: variables.name }),
@@ -241,7 +241,7 @@ export function useDuplicateEpisodeProfile() {
       podcastsApi.duplicateEpisodeProfile(profileId),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.episodeProfiles })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.profileDuplicated'),
         description: t('podcasts.profileDuplicatedDesc', { name: data.name }),
@@ -288,7 +288,7 @@ export function useCreateSpeakerProfile() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.speakerProfiles })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.episodeProfiles })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.speakerCreated'),
         description: t('podcasts.speakerCreatedDesc', { name: data.name }),
@@ -320,7 +320,7 @@ export function useUpdateSpeakerProfile() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.speakerProfiles })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.episodeProfiles })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.speakerUpdated'),
         description: t('podcasts.speakerUpdatedDesc', { name: data.name }),
@@ -347,7 +347,7 @@ export function useDeleteSpeakerProfile() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.speakerProfiles })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.episodeProfiles })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      queryClient.invalidateQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.speakerDeleted'),
         description: t('podcasts.speakerDeletedDesc', { name: variables.name }),
@@ -398,7 +398,7 @@ export function useGeneratePodcast() {
       podcastsApi.generatePodcast(payload),
     onSuccess: async (response) => {
       // Immediately refetch to show the new episode
-      await queryClient.refetchQueries({ queryKey: QUERY_KEYS.podcastEpisodes })
+      await queryClient.refetchQueries({ queryKey: ['podcasts', 'episodes'] })
       toast({
         title: t('podcasts.generationStarted'),
         description: t('podcasts.generationStartedDesc', { name: response.episode_name }),

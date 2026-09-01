@@ -4,6 +4,12 @@ Choose your installation route based on your setup and use case.
 
 ## Quick Decision: Which Route?
 
+### 🚢 I want a production deployment
+**→ [Deployment-Ready Open Notebook](deployment-ready.md)** - Secure Docker,
+Fly.io, Railway, Render, health checks, persistence, backup, and rollback
+
+---
+
 ### 🚀 I want the easiest setup (Recommended for most)
 **→ [Docker Compose](docker-compose.md)** - Multi-container setup, production-ready
 - ✅ All features working
@@ -86,6 +92,7 @@ Choose your installation route based on your setup and use case.
 **Already know which way to go?** Pick your installation path:
 
 - [Docker Compose](docker-compose.md) - **Most users**
+- [Deployment-Ready Open Notebook](deployment-ready.md) - **Hosted production**
 - [Single Container](single-container.md) - **Deprecated**
 - [From Source](from-source.md) - **Developers**
 

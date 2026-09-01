@@ -39,7 +39,7 @@ export default function SearchPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState(urlMode === 'search' ? urlQuery : '')
-  const [searchType, setSearchType] = useState<'text' | 'vector'>('text')
+  const [searchType, setSearchType] = useState<'text' | 'vector' | 'hybrid'>('text')
   const [searchSources, setSearchSources] = useState(true)
   const [searchNotes, setSearchNotes] = useState(true)
 
@@ -366,9 +366,22 @@ export default function SearchPage() {
                     <RadioGroup
                       name="search-type"
                       value={searchType}
-                      onValueChange={(value: 'text' | 'vector') => setSearchType(value)}
+                      onValueChange={(value: 'text' | 'vector' | 'hybrid') => setSearchType(value)}
                       disabled={modelsLoading || searchMutation.isPending}
                     >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem
+                          value="hybrid"
+                          id="hybrid"
+                          disabled={!hasEmbeddingModel || searchMutation.isPending}
+                        />
+                        <Label
+                          htmlFor="hybrid"
+                          className={`font-normal ${!hasEmbeddingModel ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          {t('searchPage.hybridSearch')}
+                        </Label>
+                      </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="text" id="text" />
                         <Label htmlFor="text" className="font-normal cursor-pointer">
@@ -430,7 +443,13 @@ export default function SearchPage() {
                       <h3 className="text-sm font-medium">
                         {t('searchPage.resultsFound', { count: searchMutation.data.total_count })}
                       </h3>
-                      <Badge variant="outline">{searchMutation.data.search_type === 'text' ? t('searchPage.textSearch') : t('searchPage.vectorSearch')}</Badge>
+                      <Badge variant="outline">
+                        {searchMutation.data.search_type === 'hybrid'
+                          ? t('searchPage.hybridSearch')
+                          : searchMutation.data.search_type === 'text'
+                            ? t('searchPage.textSearch')
+                            : t('searchPage.vectorSearch')}
+                      </Badge>
                     </div>
 
                     {searchMutation.data.results.length === 0 ? (

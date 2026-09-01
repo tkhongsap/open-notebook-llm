@@ -1,0 +1,68 @@
+services:
+  surrealdb:
+    image: surrealdb/surrealdb:v2
+    command:
+      - start
+      - --log
+      - info
+      - rocksdb:/mydata/mydatabase.db
+    user: root
+    environment:
+      SURREAL_EXPERIMENTAL_GRAPHQL: "true"
+      SURREAL_USER: ${SURREAL_USER:?Set SURREAL_USER}
+      SURREAL_PASS: ${SURREAL_PASSWORD:?Set SURREAL_PASSWORD}
+      SURREAL_PASSWORD: ${SURREAL_PASSWORD:?Set SURREAL_PASSWORD}
+      SURREAL_NAMESPACE: ${SURREAL_NAMESPACE:-open_notebook}
+      SURREAL_DATABASE: ${SURREAL_DATABASE:-open_notebook}
+    volumes:
+      - surreal_data:/mydata
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "surreal", "is-ready", "--endpoint", "http://127.0.0.1:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - backend
+
+  open_notebook:
+    image: ${OPEN_NOTEBOOK_IMAGE:-ghcr.io/lfnovo/open-notebook:v1-latest}
+    ports:
+      - "${OPEN_NOTEBOOK_PORT:-8502}:8502"
+    environment:
+      OPEN_NOTEBOOK_REQUIRE_SECURITY: "true"
+      OPEN_NOTEBOOK_ENCRYPTION_KEY: ${OPEN_NOTEBOOK_ENCRYPTION_KEY:?Set OPEN_NOTEBOOK_ENCRYPTION_KEY}
+      OPEN_NOTEBOOK_PASSWORD: ${OPEN_NOTEBOOK_PASSWORD:?Set OPEN_NOTEBOOK_PASSWORD}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS to the public frontend origin}
+      INTERNAL_API_URL: http://127.0.0.1:5055
+      SURREAL_URL: ws://surrealdb:8000/rpc
+      SURREAL_USER: ${SURREAL_USER:?Set SURREAL_USER}
+      SURREAL_PASSWORD: ${SURREAL_PASSWORD:?Set SURREAL_PASSWORD}
+      SURREAL_NAMESPACE: ${SURREAL_NAMESPACE:-open_notebook}
+      SURREAL_DATABASE: ${SURREAL_DATABASE:-open_notebook}
+      OPEN_NOTEBOOK_WORKER_MAX_TASKS: ${OPEN_NOTEBOOK_WORKER_MAX_TASKS:-5}
+    volumes:
+      - notebook_data:/app/data
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8502/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - backend
+      - ingress
+
+volumes:
+  surreal_data:
+  notebook_data:
+
+networks:
+  backend:
+    internal: true
+  ingress:

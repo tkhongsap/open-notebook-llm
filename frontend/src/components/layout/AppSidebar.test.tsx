@@ -47,4 +47,16 @@ describe('AppSidebar', () => {
     // In collapsed mode, app name shouldn't be visible (as text)
     expect(screen.queryByText('common.appName')).toBeNull()
   })
+
+  it('forces the expanded navigation in the mobile drawer', () => {
+    vi.mocked(useSidebarStore).mockReturnValue({
+      isCollapsed: true,
+      toggleCollapse: vi.fn(),
+    } as any)
+
+    render(<AppSidebar mobile />)
+
+    expect(screen.getByText('common.appName')).toBeDefined()
+    expect(screen.getByText('navigation.sources')).toBeDefined()
+  })
 })

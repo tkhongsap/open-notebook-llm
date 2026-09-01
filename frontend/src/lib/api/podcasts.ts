@@ -22,17 +22,27 @@ export async function resolvePodcastAssetUrl(path?: string | null): Promise<stri
   }
 
   const base = await getApiUrl()
+  const normalizedBase = base.replace(/\/$/, '')
+  const browserOrigin = typeof window !== 'undefined' ? window.location.origin : ''
 
   if (path.startsWith('/')) {
-    return `${base}${path}`
+    if (normalizedBase) {
+      return `${normalizedBase}${path}`
+    }
+    return browserOrigin ? `${browserOrigin}${path}` : path
   }
 
-  return `${base}/${path}`
+  if (normalizedBase) {
+    return `${normalizedBase}/${path}`
+  }
+  return browserOrigin ? `${browserOrigin}/${path}` : `/${path}`
 }
 
 export const podcastsApi = {
-  listEpisodes: async () => {
-    const response = await apiClient.get<PodcastEpisode[]>('/podcasts/episodes')
+  listEpisodes: async (notebookId?: string) => {
+    const response = await apiClient.get<PodcastEpisode[]>('/podcasts/episodes', {
+      params: notebookId ? { notebook_id: notebookId } : undefined,
+    })
     return response.data
   },
 
