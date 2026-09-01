@@ -30,11 +30,13 @@ import { useCreateDialogs } from '@/lib/hooks/use-create-dialogs'
 import type { NotebookArtifactKind } from '@/lib/types/api'
 import { Separator } from '@/components/ui/separator'
 import { StudioActions } from './StudioActions'
+import { NotebookAudioOverviews } from './NotebookAudioOverviews'
 
 interface NotesColumnProps {
   notes?: NoteResponse[]
   isLoading: boolean
   notebookId: string
+  notebookName: string
   contextSelections?: Record<string, NoteContextMode>
   onContextModeChange?: (noteId: string, mode: NoteContextMode) => void
   onBulkContextModeChange?: (action: NoteContextDefault) => void
@@ -45,6 +47,7 @@ export function NotesColumn({
   notes,
   isLoading,
   notebookId,
+  notebookName,
   contextSelections,
   onContextModeChange,
   onBulkContextModeChange,
@@ -154,7 +157,7 @@ export function NotesColumn({
                 disabled={!hasContext}
                 pendingKind={pendingKind}
                 onGenerate={handleGenerateArtifact}
-                onAudio={openPodcastDialog}
+                onAudio={() => openPodcastDialog({ notebookId, notebookName })}
               />
               {!hasContext && (
                 <p className="rounded-lg bg-muted/55 px-3 py-2 text-xs text-muted-foreground">
@@ -162,6 +165,8 @@ export function NotesColumn({
                 </p>
               )}
             </section>
+
+            <NotebookAudioOverviews notebookId={notebookId} />
 
             <Separator />
 

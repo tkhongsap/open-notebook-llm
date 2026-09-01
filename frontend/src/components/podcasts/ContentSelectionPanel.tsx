@@ -284,10 +284,11 @@ export function ContentSelectionPanel({
                                         {note.title || t('podcasts.untitledNote')}
                                       </span>
                                       <span className="text-xs text-muted-foreground">
-                                        {t('common.updated')}{' '}
-                                        {new Date(note.updated).toLocaleString(
-                                          language.startsWith('zh') ? language : 'en-US'
-                                        )}
+                                        {t('common.updated', {
+                                          time: new Date(note.updated).toLocaleString(
+                                            language.startsWith('zh') ? language : 'en-US'
+                                          ),
+                                        })}
                                       </span>
                                     </Label>
                                   </div>

@@ -1,16 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, Loader2, Settings2 } from 'lucide-react'
 import { useQueries } from '@tanstack/react-query'
 
 import { useNotebooks } from '@/lib/hooks/use-notebooks'
-import { useEpisodeProfiles, useGeneratePodcast } from '@/lib/hooks/use-podcasts'
+import { useEpisodeProfiles, useGeneratePodcast, useSpeakerProfiles } from '@/lib/hooks/use-podcasts'
 import { chatApi } from '@/lib/api/chat'
 import { sourcesApi } from '@/lib/api/sources'
 import { notesApi } from '@/lib/api/notes'
 import { NoteResponse, SourceListResponse } from '@/lib/types/api'
-import { PodcastGenerationRequest } from '@/lib/types/podcasts'
+import { isEpisodeProfileReady, PodcastGenerationRequest } from '@/lib/types/podcasts'
 import { QUERY_KEYS } from '@/lib/api/query-client'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useTranslation } from '@/lib/hooks/use-translation'
@@ -26,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 import { ContentSelectionPanel } from './ContentSelectionPanel'
 import {
@@ -41,9 +43,16 @@ const TOKEN_COUNT_DEBOUNCE_MS = 400
 interface GeneratePodcastDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialNotebookId?: string
+  initialNotebookName?: string
 }
 
-export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDialogProps) {
+export function GeneratePodcastDialog({
+  open,
+  onOpenChange,
+  initialNotebookId,
+  initialNotebookName,
+}: GeneratePodcastDialogProps) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const [expandedNotebooks, setExpandedNotebooks] = useState<string[]>([])
@@ -58,6 +67,7 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
 
   const notebooksQuery = useNotebooks()
   const episodeProfilesQuery = useEpisodeProfiles()
+  const speakerProfilesQuery = useSpeakerProfiles(episodeProfilesQuery.episodeProfiles)
   const generatePodcast = useGeneratePodcast()
 
   const notebooks = useMemo(
@@ -67,6 +77,14 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
   const episodeProfiles = useMemo(
     () => episodeProfilesQuery.episodeProfiles ?? [],
     [episodeProfilesQuery.episodeProfiles]
+  )
+  const speakerProfiles = useMemo(
+    () => speakerProfilesQuery.speakerProfiles ?? [],
+    [speakerProfilesQuery.speakerProfiles]
+  )
+  const readyEpisodeProfiles = useMemo(
+    () => episodeProfiles.filter((profile) => isEpisodeProfileReady(profile, speakerProfiles)),
+    [episodeProfiles, speakerProfiles]
   )
 
   // Fetch sources and notes for notebooks using useQueries
@@ -200,6 +218,35 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
       resetState()
     }
   }, [open, resetState])
+
+  // Notebook Studio launches directly into a one-notebook Audio Overview:
+  // expand it so source/note defaults load, prefill a useful title, and pick
+  // the first profile that has both language and voice models configured.
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    if (initialNotebookId) {
+      setExpandedNotebooks((current) =>
+        current.includes(initialNotebookId) ? current : [initialNotebookId]
+      )
+    }
+    if (initialNotebookName) {
+      setEpisodeName((current) =>
+        current || t('podcasts.defaultEpisodeName', { name: initialNotebookName })
+      )
+    }
+    if (!episodeProfileId && readyEpisodeProfiles.length > 0) {
+      setEpisodeProfileId(readyEpisodeProfiles[0].id)
+    }
+  }, [
+    episodeProfileId,
+    initialNotebookId,
+    initialNotebookName,
+    open,
+    readyEpisodeProfiles,
+    t,
+  ])
 
   // Generation counter: any newer effect run invalidates in-flight count requests,
   // so a slow, stale response can never overwrite a fresher one.
@@ -433,6 +480,9 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
         speaker_profile: speakerProfileRef,
         episode_name: episodeName.trim(),
         content,
+        notebook_ids: selectionsToContextConfigs(selections).map(
+          ({ notebookId }) => notebookId
+        ),
         briefing_suffix: instructions.trim() ? instructions.trim() : undefined,
       }
 
@@ -464,6 +514,7 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
     instructions,
     onOpenChange,
     resetState,
+    selections,
     selectedEpisodeProfile,
     toast,
     t,
@@ -509,7 +560,7 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('podcasts.episodeSettings')}
               </h3>
-              {episodeProfilesQuery.isLoading ? (
+              {episodeProfilesQuery.isLoading || speakerProfilesQuery.isLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" /> {t('podcasts.loadingProfiles')}
                 </div>
@@ -517,6 +568,20 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
                 <div className="rounded-lg border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
                   {t('podcasts.noProfilesFound')}
                 </div>
+              ) : readyEpisodeProfiles.length === 0 ? (
+                <Alert className="border-warn/30 bg-warn-tint text-warn">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>{t('podcasts.audioSetupRequired')}</AlertTitle>
+                  <AlertDescription className="space-y-3">
+                    <p>{t('podcasts.audioSetupRequiredDesc')}</p>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/podcasts?tab=templates" onClick={() => onOpenChange(false)}>
+                        <Settings2 className="mr-2 h-4 w-4" />
+                        {t('podcasts.configureAudio')}
+                      </Link>
+                    </Button>
+                  </AlertDescription>
+                </Alert>
               ) : (
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -530,7 +595,7 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
                         <SelectValue placeholder={t('podcasts.episodeProfilePlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {episodeProfiles.map((profile) => (
+                        {readyEpisodeProfiles.map((profile) => (
                           <SelectItem key={profile.id} value={profile.id}>
                             {profile.name}
                           </SelectItem>
@@ -582,7 +647,7 @@ export function GeneratePodcastDialog({ open, onOpenChange }: GeneratePodcastDia
             <div className="flex flex-col gap-3">
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || readyEpisodeProfiles.length === 0}
                 className="w-full"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

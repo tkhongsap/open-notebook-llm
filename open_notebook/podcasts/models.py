@@ -247,6 +247,10 @@ class PodcastEpisode(ObjectModel):
     command: Optional[Union[str, RecordID]] = Field(
         default=None, description="Link to surreal-commands job"
     )
+    notebook_ids: List[Union[str, RecordID]] = Field(
+        default_factory=list,
+        description="Notebook records whose selected content produced this episode",
+    )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -335,5 +339,10 @@ class PodcastEpisode(ObjectModel):
         # Ensure command field is RecordID format if not None
         if data.get("command") is not None:
             data["command"] = ensure_record_id(data["command"])
+
+        data["notebook_ids"] = [
+            ensure_record_id(notebook_id)
+            for notebook_id in data.get("notebook_ids", [])
+        ]
 
         return data

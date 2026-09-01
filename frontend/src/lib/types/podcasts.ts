@@ -88,6 +88,8 @@ export interface PodcastEpisode {
   created?: string | null
   job_status?: EpisodeStatus | null
   error_message?: string | null
+  notebook_ids: string[]
+  job_id?: string | null
 }
 
 export interface PodcastGenerationRequest {
@@ -97,6 +99,7 @@ export interface PodcastGenerationRequest {
   episode_name: string
   content?: string
   notebook_id?: string
+  notebook_ids?: string[]
   briefing_suffix?: string | null
 }
 
@@ -185,4 +188,19 @@ export function needsModelSetup(profile: EpisodeProfile | SpeakerProfile): boole
   }
   const sp = profile as SpeakerProfile
   return !sp.voice_model
+}
+
+/** Whether an episode profile and its linked voice profile can generate audio. */
+export function isEpisodeProfileReady(
+  profile: EpisodeProfile,
+  speakerProfiles: SpeakerProfile[]
+): boolean {
+  if (needsModelSetup(profile) || !profile.speaker_config) {
+    return false
+  }
+
+  const speakerProfile = speakerProfiles.find(
+    (candidate) => candidate.id === profile.speaker_config
+  )
+  return Boolean(speakerProfile && !needsModelSetup(speakerProfile))
 }

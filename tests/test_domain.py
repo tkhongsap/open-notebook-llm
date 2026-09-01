@@ -27,7 +27,7 @@ from open_notebook.domain.notebook import (
 )
 from open_notebook.domain.transformation import Transformation
 from open_notebook.exceptions import InvalidInputError
-from open_notebook.podcasts.models import EpisodeProfile, SpeakerProfile
+from open_notebook.podcasts.models import EpisodeProfile, PodcastEpisode, SpeakerProfile
 
 # ============================================================================
 # TEST SUITE 1: RecordModel Singleton Pattern
@@ -509,6 +509,33 @@ class TestPodcastService:
         ]
         submitted_args = {}
 
+        episode_profile = SimpleNamespace(
+            id="episode_profile:episode",
+            name="Episode",
+            default_briefing="Explain the notebook.",
+            outline_llm="model:language",
+            transcript_llm="model:language",
+            model_dump=lambda: {
+                "id": "episode_profile:episode",
+                "name": "Episode",
+                "default_briefing": "Explain the notebook.",
+            },
+        )
+        speaker_profile = SimpleNamespace(
+            id="speaker_profile:speakers",
+            name="Speakers",
+            voice_model="model:voice",
+            model_dump=lambda: {
+                "id": "speaker_profile:speakers",
+                "name": "Speakers",
+                "speakers": [],
+            },
+        )
+
+        async def fake_episode_save(episode):
+            episode.id = episode.id or "episode:queued"
+            return episode
+
         async def fake_get_sources(self, include_full_text=False):
             return sources
 
@@ -532,17 +559,16 @@ class TestPodcastService:
 
         with (
             patch.object(
-                EpisodeProfile, "get_by_name", new=AsyncMock(return_value=object())
+                EpisodeProfile,
+                "get_by_name",
+                new=AsyncMock(return_value=episode_profile),
             ),
             patch.object(
                 SpeakerProfile,
                 "get_by_name",
-                new=AsyncMock(
-                    return_value=SimpleNamespace(
-                        id="speaker_profile:speakers", name="Speakers"
-                    )
-                ),
+                new=AsyncMock(return_value=speaker_profile),
             ),
+            patch.object(PodcastEpisode, "save", new=fake_episode_save),
             patch.object(Notebook, "get", new=AsyncMock(return_value=notebook)),
             patch.object(Notebook, "get_sources", new=fake_get_sources),
             patch.object(Notebook, "get_notes", new=fake_get_notes),

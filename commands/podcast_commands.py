@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger
+from pydantic import Field
 from surreal_commands import CommandInput, CommandOutput, command
 
 from open_notebook.config import PODCASTS_FOLDER
@@ -50,6 +51,8 @@ class PodcastGenerationInput(CommandInput):
     episode_name: str
     content: str
     briefing_suffix: Optional[str] = None
+    notebook_ids: list[str] = Field(default_factory=list)
+    episode_id: Optional[str] = None
 
 
 class PodcastGenerationOutput(CommandOutput):
@@ -254,20 +257,41 @@ async def generate_podcast_command(
         if input_data.briefing_suffix:
             briefing += f"\n\nAdditional instructions: {input_data.briefing_suffix}"
 
-        # Create the record for the episode and associate with the ongoing command
-        episode = PodcastEpisode(
-            name=input_data.episode_name,
-            episode_profile=full_model_dump(episode_profile.model_dump()),
-            speaker_profile=full_model_dump(speaker_profile.model_dump()),
-            command=ensure_record_id(input_data.execution_context.command_id)
-            if input_data.execution_context
-            else None,
-            briefing=briefing,
-            content=input_data.content,
-            audio_file=None,
-            transcript=None,
-            outline=None,
-        )
+        # The API creates a durable pending episode before queuing the job so
+        # Studio can show it immediately. Legacy/direct command submissions do
+        # not include episode_id, so retain the old create-on-worker behavior.
+        if input_data.episode_id:
+            episode = await PodcastEpisode.get(input_data.episode_id)
+            episode.name = input_data.episode_name
+            episode.episode_profile = full_model_dump(episode_profile.model_dump())
+            episode.speaker_profile = full_model_dump(speaker_profile.model_dump())
+            episode.command = (
+                ensure_record_id(input_data.execution_context.command_id)
+                if input_data.execution_context
+                else episode.command
+            )
+            episode.briefing = briefing
+            episode.content = input_data.content
+            episode.notebook_ids = [
+                ensure_record_id(value) for value in input_data.notebook_ids
+            ]
+        else:
+            episode = PodcastEpisode(
+                name=input_data.episode_name,
+                episode_profile=full_model_dump(episode_profile.model_dump()),
+                speaker_profile=full_model_dump(speaker_profile.model_dump()),
+                command=ensure_record_id(input_data.execution_context.command_id)
+                if input_data.execution_context
+                else None,
+                briefing=briefing,
+                content=input_data.content,
+                notebook_ids=[
+                    ensure_record_id(value) for value in input_data.notebook_ids
+                ],
+                audio_file=None,
+                transcript=None,
+                outline=None,
+            )
         await episode.save()
 
         # SECURITY NOTE for future work: podcast_creator also supports

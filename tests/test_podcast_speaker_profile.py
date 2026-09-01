@@ -15,6 +15,7 @@ let the command fail at a deterministic early exit (speaker not found) so the
 assertion is purely about WHICH speaker profile reference was resolved.
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -23,7 +24,7 @@ from commands.podcast_commands import (
     PodcastGenerationInput,
     generate_podcast_command,
 )
-from open_notebook.podcasts.models import EpisodeProfile, SpeakerProfile
+from open_notebook.podcasts.models import EpisodeProfile, PodcastEpisode, SpeakerProfile
 
 
 def make_episode_profile(speaker_config="speaker_profile:from_episode"):
@@ -188,11 +189,32 @@ class TestApiBoundaryResolvesNameToRecordId:
     async def test_submit_passes_record_id_to_command(self):
         from api.podcast_service import PodcastService
 
-        episode_profile = Mock()
-        episode_profile.name = "Deep Dive"
-        speaker_profile = Mock()
-        speaker_profile.id = "speaker_profile:abc"
-        speaker_profile.name = "Tech Experts"
+        episode_profile = SimpleNamespace(
+            id="episode_profile:deep-dive",
+            name="Deep Dive",
+            default_briefing="Discuss the source material.",
+            outline_llm="model:language",
+            transcript_llm="model:language",
+            model_dump=lambda: {
+                "id": "episode_profile:deep-dive",
+                "name": "Deep Dive",
+                "default_briefing": "Discuss the source material.",
+            },
+        )
+        speaker_profile = SimpleNamespace(
+            id="speaker_profile:abc",
+            name="Tech Experts",
+            voice_model="model:voice",
+            model_dump=lambda: {
+                "id": "speaker_profile:abc",
+                "name": "Tech Experts",
+                "speakers": [],
+            },
+        )
+
+        async def fake_episode_save(episode):
+            episode.id = episode.id or "episode:queued"
+            return episode
 
         with (
             patch(
@@ -203,6 +225,7 @@ class TestApiBoundaryResolvesNameToRecordId:
                 "api.podcast_service.SpeakerProfile.resolve",
                 new=AsyncMock(return_value=speaker_profile),
             ) as mock_resolve,
+            patch.object(PodcastEpisode, "save", new=fake_episode_save),
             patch("api.podcast_service.submit_command") as mock_submit,
         ):
             mock_submit.return_value = "command:job1"

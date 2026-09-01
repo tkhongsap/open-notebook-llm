@@ -203,6 +203,7 @@ export default function NotebookPage() {
                     notes={notes}
                     isLoading={notesLoading}
                     notebookId={notebookId}
+                    notebookName={notebook.name}
                     contextSelections={contextSelections.notes}
                     onContextModeChange={handleNoteContextModeChange}
                     onBulkContextModeChange={handleBulkNoteContext}
@@ -265,6 +266,7 @@ export default function NotebookPage() {
                 notes={notes}
                 isLoading={notesLoading}
                 notebookId={notebookId}
+                notebookName={notebook.name}
                 contextSelections={contextSelections.notes}
                 onContextModeChange={handleNoteContextModeChange}
                 onBulkContextModeChange={handleBulkNoteContext}

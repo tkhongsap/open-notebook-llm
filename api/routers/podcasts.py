@@ -1,9 +1,10 @@
+import mimetypes
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.podcast_service import (
     PodcastGenerationRequest,
@@ -119,6 +120,8 @@ class PodcastEpisodeResponse(BaseModel):
     created: Optional[str] = None
     job_status: Optional[str] = None
     error_message: Optional[str] = None
+    notebook_ids: List[str] = Field(default_factory=list)
+    job_id: Optional[str] = None
 
 
 @router.post("/podcasts/generate", response_model=PodcastGenerationResponse)
@@ -133,6 +136,7 @@ async def generate_podcast(request: PodcastGenerationRequest):
             speaker_profile_name=request.speaker_profile,
             episode_name=request.episode_name,
             notebook_id=request.notebook_id,
+            notebook_ids=request.notebook_ids,
             content=request.content,
             briefing_suffix=request.briefing_suffix,
         )
@@ -175,10 +179,12 @@ async def get_podcast_job_status(job_id: str):
 
 
 @router.get("/podcasts/episodes", response_model=List[PodcastEpisodeResponse])
-async def list_podcast_episodes():
+async def list_podcast_episodes(
+    notebook_id: Optional[str] = Query(None, description="Filter by notebook ID"),
+):
     """List all podcast episodes"""
     try:
-        episodes = await PodcastService.list_episodes()
+        episodes = await PodcastService.list_episodes(notebook_id=notebook_id)
 
         # Batch-fetch job status for every episode with a command in one
         # query instead of one round trip per episode (see
@@ -243,6 +249,8 @@ async def list_podcast_episodes():
                     created=str(episode.created) if episode.created else None,
                     job_status=job_status,
                     error_message=error_message,
+                    notebook_ids=[str(value) for value in episode.notebook_ids],
+                    job_id=str(episode.command) if episode.command else None,
                 )
             )
 
@@ -307,6 +315,8 @@ async def get_podcast_episode(episode_id: str):
             created=str(episode.created) if episode.created else None,
             job_status=job_status,
             error_message=error_message,
+            notebook_ids=[str(value) for value in episode.notebook_ids],
+            job_id=str(episode.command) if episode.command else None,
         )
 
     except HTTPException:
@@ -347,7 +357,7 @@ async def stream_podcast_episode_audio(episode_id: str):
 
     return FileResponse(
         audio_path,
-        media_type="audio/mpeg",
+        media_type=mimetypes.guess_type(audio_path.name)[0] or "audio/mpeg",
         filename=audio_path.name,
     )
 
@@ -378,19 +388,21 @@ async def retry_podcast_episode(episode_id: str):
                 detail="Cannot retry: episode or speaker profile name missing from stored data",
             )
 
-        # Delete audio file if any
-        _delete_episode_audio(episode, episode_id)
-
-        # Delete the failed episode
-        await episode.delete()
-
-        # Submit a new job
+        # Submit the replacement before deleting the failed record. If profile
+        # readiness or queue submission fails, users keep the error details and
+        # can retry again after fixing configuration.
         job_id = await PodcastService.submit_generation_job(
             episode_profile_name=ep_profile_name,
             speaker_profile_name=sp_profile_name,
             episode_name=episode_name,
             content=content,
+            notebook_ids=[str(value) for value in episode.notebook_ids],
         )
+
+        # The replacement is durably queued; remove the failed episode and its
+        # stale audio only now.
+        _delete_episode_audio(episode, episode_id)
+        await episode.delete()
 
         return {"job_id": job_id, "message": "Retry submitted successfully"}
 

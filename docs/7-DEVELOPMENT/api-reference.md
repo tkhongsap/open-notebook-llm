@@ -145,6 +145,29 @@ curl -X POST http://localhost:5055/sources -F async_processing=true
 curl http://localhost:5055/commands/command:cmd123
 ```
 
+### Notebook-scoped Audio Overviews
+
+Podcast generation accepts `notebook_ids` so the resulting episode can be
+shown in each originating notebook. The API creates the pending episode before
+queue submission, so clients can refetch immediately without racing the worker.
+
+```bash
+curl -X POST http://localhost:5055/api/podcasts/generate \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "episode_profile": "solo_expert",
+    "speaker_profile": "speaker_profile:example",
+    "episode_name": "Research Audio Overview",
+    "content": "Selected, grounded notebook context",
+    "notebook_ids": ["notebook:abc"]
+  }'
+
+curl 'http://localhost:5055/api/podcasts/episodes?notebook_id=notebook:abc'
+```
+
+Episode responses include `notebook_ids`, `job_id`, generation status,
+transcript, outline, and the protected `audio_url` when an MP3 is ready.
+
 ### Streaming Responses
 
 The `/ask` endpoint streams responses as Server-Sent Events:

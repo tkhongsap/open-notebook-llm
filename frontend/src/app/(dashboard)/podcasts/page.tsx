@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 
 import { AppShell } from '@/components/layout/AppShell'
@@ -15,7 +16,13 @@ import { needsModelSetup } from '@/lib/types/podcasts'
 
 export default function PodcastsPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<'episodes' | 'templates'>('episodes')
+  const searchParams = useSearchParams()
+  const requestedTab = searchParams.get('tab') === 'templates' ? 'templates' : 'episodes'
+  const [activeTab, setActiveTab] = useState<'episodes' | 'templates'>(requestedTab)
+
+  useEffect(() => {
+    setActiveTab(requestedTab)
+  }, [requestedTab])
 
   const { episodeProfiles } = useEpisodeProfiles()
   const { speakerProfiles } = useSpeakerProfiles(episodeProfiles)

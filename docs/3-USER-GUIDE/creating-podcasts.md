@@ -7,17 +7,27 @@ Podcasts let you consume your research passively. This guide covers the complete
 ## Quick-Start: Your First Podcast (5 Minutes)
 
 ```
-1. Go to your notebook
-2. Click "Generate Podcast"
-3. Select sources to include
-4. Choose a speaker profile (or use default)
+1. Go to your notebook and open Studio
+2. Click "Audio Overview"
+3. Review the preselected notebook sources and notes
+4. Choose a configured episode profile
 5. Click "Generate"
-6. Wait 3-10 minutes (non-blocking)
-7. Download MP3 when ready
+6. Follow Pending and Processing status in the same Studio column
+7. Play the episode, change speed, open its transcript, or download MP3
 8. Done!
 ```
 
 That's the minimum. Let's make it better.
+
+The Studio workflow is notebook-scoped: an episode generated from a notebook
+remains attached to that notebook after a restart or deployment. The global
+**Podcasts → Episodes** page still provides an all-episodes view.
+
+If Studio reports **Audio setup required**, open the linked profile workspace
+and select both language models (outline and transcript) plus a text-to-speech
+voice model. For a fully local stack, follow [Local Text-to-Speech
+Setup](../5-CONFIGURATION/local-tts.md); an OpenRouter TTS model can be used
+instead when an OpenRouter credential is configured.
 
 ---
 
@@ -481,8 +491,11 @@ Rule: 3-5 sources per podcast
 2. Try again (might be temporary issue)
 3. Use local TTS (doesn't need internet)
 4. Reduce source count (less to process)
-5. Contact support if persistent
+5. Open the failed episode's error details and use Retry after fixing configuration
 ```
+
+Retry preserves the episode's notebook association, so the replacement remains
+visible in the same Studio workspace.
 
 ---
 
