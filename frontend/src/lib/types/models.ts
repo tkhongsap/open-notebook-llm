@@ -69,3 +69,30 @@ export interface ModelTestResult {
   message: string
   details?: string
 }
+
+export type ModelLocation = 'local' | 'cloud'
+export type ModelRoutingPolicy = 'local-only' | 'cloud-only' | 'hybrid'
+export type ModelUnavailableReason =
+  | 'provider_not_configured'
+  | 'policy_local_only'
+  | 'policy_cloud_only'
+
+export interface RoutedModel {
+  id: string
+  name: string
+  provider: string
+  provider_display_name: string
+  location: ModelLocation
+  configuration_source: 'credential' | 'environment' | 'none'
+  configured: boolean
+  allowed: boolean
+  selectable: boolean
+  unavailable_reason?: ModelUnavailableReason | null
+  is_default: boolean
+}
+
+export interface ModelRoutingCatalog {
+  policy: ModelRoutingPolicy
+  default_model_id?: string | null
+  models: RoutedModel[]
+}

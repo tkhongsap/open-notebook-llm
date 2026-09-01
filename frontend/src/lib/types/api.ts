@@ -18,6 +18,15 @@ export interface NoteResponse {
   updated: string
 }
 
+export interface ModelExecutionInfo {
+  id: string
+  name: string
+  provider: string
+  provider_display_name: string
+  location: 'local' | 'cloud'
+  selection_reason: 'explicit' | 'default' | 'large_context'
+}
+
 export type NotebookArtifactKind =
   | 'briefing_doc'
   | 'study_guide'
@@ -36,6 +45,7 @@ export interface CreateNotebookArtifactRequest {
 export interface NotebookArtifactResponse extends NoteResponse {
   artifact_kind: NotebookArtifactKind
   command_id?: string | null
+  model: ModelExecutionInfo
 }
 
 export interface SourceListResponse {
@@ -178,6 +188,7 @@ export interface SourceChatMessage {
   type: 'human' | 'ai'
   content: string
   timestamp?: string
+  model?: ModelExecutionInfo | null
 }
 
 export interface SourceChatContextIndicator {
@@ -199,7 +210,7 @@ export interface CreateSourceChatSessionRequest {
 
 export interface UpdateSourceChatSessionRequest {
   title?: string
-  model_override?: string
+  model_override?: string | null
 }
 
 export interface SendMessageRequest {
@@ -225,6 +236,7 @@ export interface NotebookChatMessage {
   type: 'human' | 'ai'
   content: string
   timestamp?: string
+  model?: ModelExecutionInfo | null
 }
 
 export interface NotebookChatSessionWithMessages extends NotebookChatSession {

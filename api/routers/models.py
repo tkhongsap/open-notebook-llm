@@ -7,10 +7,12 @@ from fastapi import APIRouter, HTTPException, Query
 from loguru import logger
 from pydantic import BaseModel
 
+from api.model_routing_service import get_model_routing_catalog
 from api.models import (
     DefaultModelsResponse,
     ModelCreate,
     ModelResponse,
+    ModelRoutingResponse,
     ProviderAvailabilityResponse,
 )
 from open_notebook.ai.connection_tester import test_individual_model
@@ -200,6 +202,13 @@ async def get_models(
     except Exception as e:
         logger.error(f"Error fetching models: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching models: {str(e)}")
+
+
+@router.get("/models/routing", response_model=ModelRoutingResponse)
+async def get_model_routing():
+    """Get the policy-gated, non-secret language-model selection catalog."""
+
+    return await get_model_routing_catalog()
 
 
 @router.post("/models", response_model=ModelResponse)

@@ -17,6 +17,7 @@ from typing import Any, Iterable, List, Optional, Tuple
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
+from api.models import ModelExecutionResponse
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import ChatSession, Source
 
@@ -27,6 +28,9 @@ class ChatMessage(BaseModel):
     type: str = Field(..., description="Message type (human|ai)")
     content: str = Field(..., description="Message content")
     timestamp: Optional[str] = Field(None, description="Message timestamp")
+    model: Optional[ModelExecutionResponse] = Field(
+        None, description="Model provenance for AI-generated messages"
+    )
 
 
 class SuccessResponse(BaseModel):
@@ -83,12 +87,19 @@ def extract_chat_messages(raw_messages: Iterable[Any]) -> List[ChatMessage]:
     """Convert LangGraph/LangChain state messages into `ChatMessage` models."""
     messages: List[ChatMessage] = []
     for msg in raw_messages:
+        metadata = getattr(msg, "response_metadata", {}) or {}
+        model_metadata = (
+            metadata.get("open_notebook_model")
+            if isinstance(metadata, dict)
+            else None
+        )
         messages.append(
             ChatMessage(
                 id=getattr(msg, "id", f"msg_{len(messages)}"),
                 type=msg.type if hasattr(msg, "type") else "unknown",
                 content=msg.content if hasattr(msg, "content") else str(msg),
                 timestamp=None,  # LangChain messages don't have timestamps by default
+                model=model_metadata if isinstance(model_metadata, dict) else None,
             )
         )
     return messages

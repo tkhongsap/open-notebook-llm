@@ -10,6 +10,7 @@ import {
   ProviderModelCount,
   AutoAssignResult,
   ModelTestResult,
+  ModelRoutingCatalog,
 } from '@/lib/types/models'
 
 export const modelsApi = {
@@ -34,6 +35,11 @@ export const modelsApi = {
 
   getDefaults: async () => {
     const response = await apiClient.get<ModelDefaults>('/models/defaults')
+    return response.data
+  },
+
+  getRouting: async () => {
+    const response = await apiClient.get<ModelRoutingCatalog>('/models/routing')
     return response.data
   },
 

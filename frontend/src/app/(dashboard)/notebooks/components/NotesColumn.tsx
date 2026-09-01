@@ -31,6 +31,7 @@ import type { NotebookArtifactKind } from '@/lib/types/api'
 import { Separator } from '@/components/ui/separator'
 import { StudioActions } from './StudioActions'
 import { NotebookAudioOverviews } from './NotebookAudioOverviews'
+import { ModelSelector } from '@/components/common/ModelSelector'
 
 interface NotesColumnProps {
   notes?: NoteResponse[]
@@ -58,6 +59,7 @@ export function NotesColumn({
   const [editingNote, setEditingNote] = useState<NoteResponse | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
+  const [artifactModelId, setArtifactModelId] = useState('')
 
   const deleteNote = useDeleteNote()
   const createArtifact = useCreateNotebookArtifact(notebookId)
@@ -89,7 +91,10 @@ export function NotesColumn({
   }
 
   const handleGenerateArtifact = (artifactKind: NotebookArtifactKind) => {
-    createArtifact.mutate({ artifact_kind: artifactKind })
+    createArtifact.mutate({
+      artifact_kind: artifactKind,
+      model_id: artifactModelId || undefined,
+    })
   }
 
   const pendingKind = createArtifact.isPending
@@ -152,6 +157,16 @@ export function NotesColumn({
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {t('studio.createDescription')}
                 </p>
+              </div>
+              <div className="rounded-xl border bg-muted/20 p-3">
+                <ModelSelector
+                  label={t('modelRouting.modelForStudio')}
+                  modelType="language"
+                  value={artifactModelId}
+                  onChange={setArtifactModelId}
+                  allowDefault
+                  disabled={createArtifact.isPending}
+                />
               </div>
               <StudioActions
                 disabled={!hasContext}

@@ -47,6 +47,7 @@ from api.routers import (
     transformations,
 )
 from api.routers import commands as commands_router
+from open_notebook.ai.model_routing import get_model_routing_policy
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -194,6 +195,8 @@ async def lifespan(app: FastAPI):
     # Hosted deployments opt into fail-closed validation. Local development
     # keeps the existing warning-based behavior unless explicitly enabled.
     validate_production_security(os.environ)
+    model_routing_policy = get_model_routing_policy()
+    logger.info(f"Model routing policy: {model_routing_policy.value}")
 
     # Security check: Encryption key
     if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):

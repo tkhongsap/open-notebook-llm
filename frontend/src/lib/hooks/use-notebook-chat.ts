@@ -94,13 +94,22 @@ export function useNotebookChat({ notebookId, sources, notes, contextSelections 
       sessionId: string
       data: UpdateNotebookChatSessionRequest
     }) => chatApi.updateSession(sessionId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.notebookChatSessions(notebookId)
-      })
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.notebookChatSession(currentSessionId!)
-      })
+    onSuccess: (updatedSession, variables) => {
+      queryClient.setQueryData(
+        QUERY_KEYS.notebookChatSession(variables.sessionId),
+        (existing: typeof currentSession) => existing
+          ? { ...existing, ...updatedSession }
+          : existing
+      )
+      queryClient.setQueryData(
+        QUERY_KEYS.notebookChatSessions(notebookId),
+        (existing: typeof sessions) => existing.map(session =>
+          session.id === updatedSession.id ? { ...session, ...updatedSession } : session
+        )
+      )
+      // The update response is authoritative. Refetching these queries here can
+      // race a just-completed model switch and temporarily restore the previous
+      // override, so keep both caches on the returned session instead.
       toast.success(t('chat.sessionUpdated'))
     },
     onError: (err: unknown) => {
@@ -274,10 +283,12 @@ export function useNotebookChat({ notebookId, sources, notes, contextSelections 
   }, [deleteSessionMutation])
 
   // Set model override - handles both existing sessions and pending state
-  const setModelOverride = useCallback((model: string | null) => {
+  const setModelOverride = useCallback(async (model: string | null) => {
     if (currentSessionId) {
-      // Session exists - update it directly
-      updateSessionMutation.mutate({
+      // Await persistence before the selector closes. This makes resetting to
+      // the system default race-safe: the next message cannot inherit the old
+      // session override while the update is still in flight.
+      await updateSessionMutation.mutateAsync({
         sessionId: currentSessionId,
         data: { model_override: model }
       })

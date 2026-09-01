@@ -22,6 +22,7 @@ import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { ModelExecutionBadge } from '@/components/models/ModelExecutionBadge'
 
 interface NotebookContextStats {
   sourcesInsights: number
@@ -358,10 +359,13 @@ const ChatMessage = memo(function ChatMessage({
           )}
         </div>
         {message.type === 'ai' && (
-          <MessageActions
-            content={message.content}
-            notebookId={notebookId}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            {message.model && <ModelExecutionBadge model={message.model} />}
+            <MessageActions
+              content={message.content}
+              notebookId={notebookId}
+            />
+          </div>
         )}
       </div>
       {message.type === 'human' && (

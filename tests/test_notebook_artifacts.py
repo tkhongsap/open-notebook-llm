@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.artifact_service import ARTIFACT_SPECS, generate_notebook_artifact
+from open_notebook.ai.provision import ModelExecutionInfo
 from open_notebook.exceptions import InvalidInputError, NotFoundError
 
 
@@ -18,7 +19,10 @@ def client():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("artifact_kind", list(ARTIFACT_SPECS))
 @patch("api.artifact_service.Note")
-@patch("api.artifact_service.provision_langchain_model", new_callable=AsyncMock)
+@patch(
+    "api.artifact_service.provision_langchain_model_with_info",
+    new_callable=AsyncMock,
+)
 @patch("api.artifact_service.Notebook.get", new_callable=AsyncMock)
 async def test_each_artifact_kind_is_grounded_saved_and_linked(
     mock_get, mock_provision, mock_note_cls, artifact_kind
@@ -33,14 +37,22 @@ async def test_each_artifact_kind_is_grounded_saved_and_linked(
     chain.ainvoke.return_value = SimpleNamespace(
         content="# Result\n\nSupported claim [source:abc]"
     )
-    mock_provision.return_value = chain
+    execution = ModelExecutionInfo(
+        id="model:local",
+        name="sandbox/qwen",
+        provider="openai_compatible",
+        provider_display_name="Local AI / OpenAI Compatible",
+        location="local",
+        selection_reason="explicit",
+    )
+    mock_provision.return_value = (chain, execution)
 
     note = AsyncMock()
     note.id = "note:generated"
     note.save.return_value = "command:embed"
     mock_note_cls.return_value = note
 
-    result, command_id = await generate_notebook_artifact(
+    result, command_id, used_model = await generate_notebook_artifact(
         "notebook:one",
         artifact_kind,
         custom_instructions="Focus on decisions",
@@ -49,6 +61,7 @@ async def test_each_artifact_kind_is_grounded_saved_and_linked(
 
     assert result is note
     assert command_id == "command:embed"
+    assert used_model is execution
     mock_provision.assert_awaited_once()
     provision_args = mock_provision.await_args.args
     assert provision_args[1] == "model:local"
@@ -78,6 +91,14 @@ async def test_artifact_requires_substantive_notebook_context(mock_get):
 
 @patch("api.routers.artifacts.generate_notebook_artifact", new_callable=AsyncMock)
 def test_artifact_endpoint_returns_durable_note(mock_generate, client):
+    execution = ModelExecutionInfo(
+        id="model:cloud",
+        name="openai/gpt-4.1-mini",
+        provider="openrouter",
+        provider_display_name="OpenRouter",
+        location="cloud",
+        selection_reason="explicit",
+    )
     mock_generate.return_value = (
         SimpleNamespace(
             id="note:generated",
@@ -88,6 +109,7 @@ def test_artifact_endpoint_returns_durable_note(mock_generate, client):
             updated="2026-08-31T00:00:00Z",
         ),
         "command:embed",
+        execution,
     )
 
     response = client.post(
@@ -98,6 +120,7 @@ def test_artifact_endpoint_returns_durable_note(mock_generate, client):
     assert response.status_code == 200
     assert response.json()["artifact_kind"] == "study_guide"
     assert response.json()["id"] == "note:generated"
+    assert response.json()["model"] == execution.to_dict()
 
 
 def test_artifact_endpoint_rejects_unknown_kind(client):

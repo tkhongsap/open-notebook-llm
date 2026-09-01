@@ -62,10 +62,11 @@ def _graph_state(values):
 class _Msg:
     """A LangChain-like message with id/type/content."""
 
-    def __init__(self, id, type, content):
+    def __init__(self, id, type, content, response_metadata=None):
         self.id = id
         self.type = type
         self.content = content
+        self.response_metadata = response_metadata or {}
 
 
 class _Bare:
@@ -131,8 +132,27 @@ async def test_delete_chat_session_missing_returns_404(mock_get, client):
 @patch("api.routers.chat.ChatSession.get", new_callable=AsyncMock)
 async def test_get_chat_session_message_shapes(mock_get, mock_graph, mock_repo, client):
     mock_get.return_value = _session()
+    model_provenance = {
+        "id": "model:local",
+        "name": "sandbox/qwen",
+        "provider": "openai_compatible",
+        "provider_display_name": "Local AI / OpenAI Compatible",
+        "location": "local",
+        "selection_reason": "explicit",
+    }
     mock_graph.get_state.return_value = _graph_state(
-        {"messages": [_Msg("m1", "human", "hello"), _Msg("m2", "ai", "hi"), _Bare()]}
+        {
+            "messages": [
+                _Msg("m1", "human", "hello"),
+                _Msg(
+                    "m2",
+                    "ai",
+                    "hi",
+                    {"open_notebook_model": model_provenance},
+                ),
+                _Bare(),
+            ]
+        }
     )
     mock_repo.return_value = [{"out": "notebook:1"}]
 
@@ -146,8 +166,10 @@ async def test_get_chat_session_message_shapes(mock_get, mock_graph, mock_repo, 
         "type": "human",
         "content": "hello",
         "timestamp": None,
+        "model": None,
     }
     assert body["messages"][1]["type"] == "ai"
+    assert body["messages"][1]["model"] == model_provenance
     # Object without type/content falls back to "unknown" / str(msg); the id
     # fallback is positional (msg_<index>).
     assert body["messages"][2] == {
@@ -155,6 +177,7 @@ async def test_get_chat_session_message_shapes(mock_get, mock_graph, mock_repo, 
         "type": "unknown",
         "content": "bare-repr",
         "timestamp": None,
+        "model": None,
     }
 
 
@@ -318,12 +341,14 @@ async def test_get_source_chat_session_happy_path_shapes(
         "type": "human",
         "content": "hello",
         "timestamp": None,
+        "model": None,
     }
     assert body["messages"][1] == {
         "id": "msg_1",
         "type": "unknown",
         "content": "bare-repr",
         "timestamp": None,
+        "model": None,
     }
     assert body["context_indicators"] == {
         "sources": ["source:xyz"],

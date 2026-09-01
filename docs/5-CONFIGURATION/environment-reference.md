@@ -15,6 +15,7 @@ Comprehensive list of all environment variables available in Open Notebook.
 | `OPEN_NOTEBOOK_PASSWORD` | No | None | Password to protect Open Notebook instance |
 | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | **Yes** | None | Secret string to encrypt credentials stored in database (any string works). **Required** for the credential system. Supports Docker secrets via `_FILE` suffix. |
 | `OPEN_NOTEBOOK_REQUIRE_SECURITY` | No | `false` | When true, fail startup unless encryption, login, database, and CORS settings meet the production security contract. Hosted templates enable this. |
+| `OPEN_NOTEBOOK_MODEL_ROUTING_POLICY` | No | `hybrid` | Server-side execution guard: `hybrid` permits configured local and cloud models, `local-only` blocks every cloud model, and `cloud-only` blocks every local/private-endpoint model. It never selects a fallback. Invalid values fail startup. |
 | `FRONTEND_BIND_HOST` | No | `0.0.0.0` (in Docker) | Network interface for Next.js to bind to. Default `0.0.0.0` ensures accessibility from reverse proxies. (Replaces `HOSTNAME`, which container runtimes such as Podman override with the container/pod hostname, causing Next.js to bind to the wrong address) |
 | `API_HOST` | No | `0.0.0.0` (in Docker) | Network interface for the API (uvicorn) to bind to. Set to `::` for IPv6 dual-stack environments (listens on IPv6 and, on Linux defaults, IPv4 too) |
 | `OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB` | No | 100 | Maximum request body size (in MB) the API will accept, enforced before auth/routing. Raise this if you need to upload larger audio/video files. A fronting reverse proxy's own limit (e.g. nginx `client_max_body_size`) still applies and should be raised to match. |
@@ -199,6 +200,11 @@ SURREAL_DATABASE=open_notebook
 ```
 Then configure AI providers via **Settings → API Keys** in the browser.
 
+For a private workstation, add `OPEN_NOTEBOOK_MODEL_ROUTING_POLICY=local-only`.
+For a hosted cloud demo that cannot reach private endpoints, use
+`OPEN_NOTEBOOK_MODEL_ROUTING_POLICY=cloud-only`. Use `hybrid` only when both
+execution paths are intentionally reachable from the deployment.
+
 ### Production Deployment
 ```
 OPEN_NOTEBOOK_ENCRYPTION_KEY=your-strong-secret-key
@@ -262,6 +268,7 @@ env | grep -E "^[A-Z_]+=" | sort
 - **No spaces:** `OPEN_NOTEBOOK_ENCRYPTION_KEY=my-key` not `OPEN_NOTEBOOK_ENCRYPTION_KEY = my-key`
 - **Quote values:** Use quotes for values with spaces: `API_URL="http://my server:5055"`
 - **Restart required:** Changes take effect after restarting services
+- **No implicit fallback:** Model routing policy only permits or blocks an explicit/default selection. A failed local request is never retried through a cloud provider.
 - **Secrets:** Don't commit encryption keys or passwords to git
 - **AI Providers:** Configure via **Settings → API Keys** in the browser (not via env vars)
 - **Migration:** Use Settings UI to migrate existing env vars to the credential system. See [API Configuration](../3-USER-GUIDE/api-configuration.md#migrating-from-environment-variables)

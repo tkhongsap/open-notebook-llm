@@ -11,6 +11,7 @@ export const MODEL_QUERY_KEYS = {
   model: (id: string) => ['models', id] as const,
   defaults: ['models', 'defaults'] as const,
   providers: ['models', 'providers'] as const,
+  routing: ['models', 'routing'] as const,
 }
 
 export function useModels() {
@@ -82,6 +83,13 @@ export function useModelDefaults() {
   return useQuery({
     queryKey: MODEL_QUERY_KEYS.defaults,
     queryFn: () => modelsApi.getDefaults(),
+  })
+}
+
+export function useModelRouting() {
+  return useQuery({
+    queryKey: MODEL_QUERY_KEYS.routing,
+    queryFn: () => modelsApi.getRouting(),
   })
 }
 

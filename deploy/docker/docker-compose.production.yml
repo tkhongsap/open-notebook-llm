@@ -42,6 +42,7 @@ services:
       SURREAL_NAMESPACE: ${SURREAL_NAMESPACE:-open_notebook}
       SURREAL_DATABASE: ${SURREAL_DATABASE:-open_notebook}
       OPEN_NOTEBOOK_WORKER_MAX_TASKS: ${OPEN_NOTEBOOK_WORKER_MAX_TASKS:-5}
+      OPEN_NOTEBOOK_MODEL_ROUTING_POLICY: ${OPEN_NOTEBOOK_MODEL_ROUTING_POLICY:-hybrid}
     volumes:
       - notebook_data:/app/data
     depends_on:
