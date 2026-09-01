@@ -7,7 +7,10 @@ from ai_prompter import Prompter
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from api.models import NotebookArtifactKind
-from open_notebook.ai.provision import provision_langchain_model
+from open_notebook.ai.provision import (
+    ModelExecutionInfo,
+    provision_langchain_model_with_info,
+)
 from open_notebook.domain.notebook import Note, Notebook
 from open_notebook.exceptions import InvalidInputError, OpenNotebookError
 from open_notebook.utils.error_classifier import classify_error
@@ -78,7 +81,7 @@ async def generate_notebook_artifact(
     artifact_kind: NotebookArtifactKind,
     custom_instructions: str | None = None,
     model_id: str | None = None,
-) -> tuple[Note, str | None]:
+) -> tuple[Note, str | None, ModelExecutionInfo]:
     """Generate and save one grounded Studio artifact for a notebook."""
     notebook = await Notebook.get(notebook_id)
     context = (await notebook.get_context()).strip()
@@ -98,7 +101,7 @@ async def generate_notebook_artifact(
     messages = [SystemMessage(content=system_prompt), HumanMessage(content=context)]
 
     try:
-        chain = await provision_langchain_model(
+        chain, execution = await provision_langchain_model_with_info(
             str(messages),
             model_id,
             "transformation",
@@ -112,7 +115,7 @@ async def generate_notebook_artifact(
         note = Note(title=spec.title, content=content, note_type="ai")
         command_id = await note.save()
         await note.add_to_notebook(notebook_id)
-        return note, str(command_id) if command_id else None
+        return note, str(command_id) if command_id else None, execution
     except OpenNotebookError:
         raise
     except Exception as exc:

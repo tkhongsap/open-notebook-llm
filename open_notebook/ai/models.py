@@ -12,6 +12,7 @@ from loguru import logger
 from surrealdb import RecordID
 
 from open_notebook.ai.connection_tester import normalize_anthropic_compatible_base_url
+from open_notebook.ai.model_routing import enforce_model_routing_policy
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel, RecordModel
 from open_notebook.exceptions import ConfigurationError
@@ -192,6 +193,11 @@ class ModelManager:
         ]:
             raise ConfigurationError(f"Invalid model type: {model.type}")
 
+        # Enforce the deployment's local/cloud boundary at the shared model
+        # construction point so API clients and background jobs cannot bypass
+        # the frontend selector. This never chooses a fallback model.
+        enforce_model_routing_policy(model.provider)
+
         # Build config from credential if linked, otherwise fall back to env vars
         config: dict = {}
         if model.credential:
@@ -257,32 +263,41 @@ class ModelManager:
         )
 
         # Create model based on type (Esperanto will cache the instance)
+        runtime_model: ModelType
         if model.type == "language":
-            return AIFactory.create_language(
+            runtime_model = AIFactory.create_language(
                 model_name=model.name,
                 provider=provider,
                 config=config,
             )
         elif model.type == "embedding":
-            return AIFactory.create_embedding(
+            runtime_model = AIFactory.create_embedding(
                 model_name=model.name,
                 provider=provider,
                 config=config,
             )
         elif model.type == "speech_to_text":
-            return AIFactory.create_speech_to_text(
+            runtime_model = AIFactory.create_speech_to_text(
                 model_name=model.name,
                 provider=provider,
                 config=config,
             )
         elif model.type == "text_to_speech":
-            return AIFactory.create_text_to_speech(
+            runtime_model = AIFactory.create_text_to_speech(
                 model_name=model.name,
                 provider=provider,
                 config=config,
             )
         else:
             raise ConfigurationError(f"Invalid model type: {model.type}")
+
+        # Esperanto normalizes provider names. Preserve the registry identity
+        # on the runtime object so persisted response provenance matches the
+        # exact model the user selected.
+        setattr(runtime_model, "_open_notebook_model_id", str(model.id or model_id))
+        setattr(runtime_model, "_open_notebook_model_name", model.name)
+        setattr(runtime_model, "_open_notebook_provider", model.provider)
+        return runtime_model
 
     async def get_defaults(self) -> DefaultModels:
         """Get the default models configuration from database"""
@@ -335,6 +350,28 @@ class ModelManager:
             model_type: The type of model to retrieve (e.g., 'chat', 'embedding', etc.)
             **kwargs: Additional arguments to pass to the model constructor
         """
+        model_id = await self.get_default_model_id(model_type)
+
+        if not model_id:
+            logger.warning(
+                f"No default model configured for type '{model_type}'. "
+                f"Please go to Settings → Models and set a default model."
+            )
+            return None
+
+        try:
+            return await self.get_model(model_id, **kwargs)
+        except (ValueError, ConfigurationError) as e:
+            logger.error(
+                f"Failed to load default model for type '{model_type}': {e}. "
+                f"The configured model_id '{model_id}' may have been deleted or misconfigured. "
+                f"Please go to Settings → Models and reconfigure the default model."
+            )
+            return None
+
+    async def get_default_model_id(self, model_type: str) -> Optional[str]:
+        """Resolve a default slot to its registered model ID without invoking it."""
+
         defaults = await self.get_defaults()
         model_id = None
 
@@ -355,22 +392,7 @@ class ModelManager:
         elif model_type == "large_context":
             model_id = defaults.large_context_model or defaults.default_chat_model
 
-        if not model_id:
-            logger.warning(
-                f"No default model configured for type '{model_type}'. "
-                f"Please go to Settings → Models and set a default model."
-            )
-            return None
-
-        try:
-            return await self.get_model(model_id, **kwargs)
-        except (ValueError, ConfigurationError) as e:
-            logger.error(
-                f"Failed to load default model for type '{model_type}': {e}. "
-                f"The configured model_id '{model_id}' may have been deleted or misconfigured. "
-                f"Please go to Settings → Models and reconfigure the default model."
-            )
-            return None
+        return str(model_id) if model_id else None
 
 
 model_manager = ModelManager()

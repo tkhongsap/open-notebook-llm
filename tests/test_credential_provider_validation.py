@@ -68,6 +68,7 @@ class TestProviderRegistryIsTheSourceOfTruth:
             assert spec.name == name
             assert spec.display_name
             assert spec.modalities, f"{name} has no modalities"
+            assert spec.location in {"local", "cloud"}
             assert spec.required_env or spec.required_any_env, (
                 f"{name} has no env var configuration"
             )

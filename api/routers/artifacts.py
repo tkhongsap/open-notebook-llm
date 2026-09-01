@@ -16,7 +16,7 @@ async def create_notebook_artifact(
 ) -> NotebookArtifactResponse:
     """Generate a grounded, durable Studio artifact from notebook context."""
     try:
-        note, command_id = await generate_notebook_artifact(
+        note, command_id, execution = await generate_notebook_artifact(
             notebook_id=notebook_id,
             artifact_kind=request.artifact_kind,
             custom_instructions=request.custom_instructions,
@@ -31,6 +31,7 @@ async def create_notebook_artifact(
             updated=str(note.updated),
             command_id=command_id,
             artifact_kind=request.artifact_kind,
+            model=execution.to_dict(),
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")

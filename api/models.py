@@ -90,6 +90,47 @@ class ModelResponse(BaseModel):
     updated: str
 
 
+class RoutedModelResponse(BaseModel):
+    """A registered language model annotated for safe user selection."""
+
+    id: str
+    name: str
+    provider: str
+    provider_display_name: str
+    location: Literal["local", "cloud"]
+    configuration_source: Literal["credential", "environment", "none"]
+    configured: bool
+    allowed: bool
+    selectable: bool
+    unavailable_reason: Optional[
+        Literal[
+            "provider_not_configured",
+            "policy_local_only",
+            "policy_cloud_only",
+        ]
+    ] = None
+    is_default: bool = False
+
+
+class ModelRoutingResponse(BaseModel):
+    """Deployment routing policy and selectable language-model catalog."""
+
+    policy: Literal["local-only", "cloud-only", "hybrid"]
+    default_model_id: Optional[str] = None
+    models: List[RoutedModelResponse]
+
+
+class ModelExecutionResponse(BaseModel):
+    """Non-secret provenance attached to an AI-generated response."""
+
+    id: str
+    name: str
+    provider: str
+    provider_display_name: str
+    location: Literal["local", "cloud"]
+    selection_reason: Literal["explicit", "default", "large_context"]
+
+
 class DefaultModelsResponse(BaseModel):
     default_chat_model: Optional[str] = None
     default_transformation_model: Optional[str] = None
@@ -239,6 +280,7 @@ class NotebookArtifactCreate(BaseModel):
 
 class NotebookArtifactResponse(NoteResponse):
     artifact_kind: NotebookArtifactKind
+    model: ModelExecutionResponse
 
 
 # Embedding API models

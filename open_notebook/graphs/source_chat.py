@@ -10,7 +10,10 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
-from open_notebook.ai.provision import provision_langchain_model
+from open_notebook.ai.provision import (
+    attach_model_execution_metadata,
+    provision_langchain_model_with_info,
+)
 from open_notebook.config import LANGGRAPH_CHECKPOINT_FILE
 from open_notebook.domain.notebook import Source, SourceInsight
 from open_notebook.exceptions import OpenNotebookError
@@ -156,7 +159,7 @@ def _call_model_with_source_context_inner(
         try:
             asyncio.set_event_loop(new_loop)
             return new_loop.run_until_complete(
-                provision_langchain_model(
+                provision_langchain_model_with_info(
                     str(payload),
                     config.get("configurable", {}).get("model_id")
                     or state.get("model_override"),
@@ -179,11 +182,11 @@ def _call_model_with_source_context_inner(
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(run_in_new_loop)
-            model = future.result()
+            provisioned = future.result()
     except RuntimeError:
         # No event loop running, safe to use asyncio.run()
-        model = asyncio.run(
-            provision_langchain_model(
+        provisioned = asyncio.run(
+            provision_langchain_model_with_info(
                 str(payload),
                 config.get("configurable", {}).get("model_id")
                 or state.get("model_override"),
@@ -195,12 +198,14 @@ def _call_model_with_source_context_inner(
             )
         )
 
+    model, execution = provisioned
     ai_message = model.invoke(payload)
 
     # Clean thinking content from AI response (e.g., <think>...</think> tags)
     content = extract_text_content(ai_message.content)
     cleaned_content = clean_thinking_content(content)
     cleaned_message = ai_message.model_copy(update={"content": cleaned_content})
+    cleaned_message = attach_model_execution_metadata(cleaned_message, execution)
 
     # Update state with context information
     return {

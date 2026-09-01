@@ -376,10 +376,14 @@ async def stream_source_chat_response(
         if "messages" in result:
             for msg in result["messages"]:
                 if hasattr(msg, "type") and msg.type == "ai":
+                    response_metadata = getattr(msg, "response_metadata", {}) or {}
                     ai_event = {
                         "type": "ai_message",
                         "content": msg.content if hasattr(msg, "content") else str(msg),
                         "timestamp": None,
+                        "model": response_metadata.get("open_notebook_model")
+                        if isinstance(response_metadata, dict)
+                        else None,
                     }
                     yield f"data: {json.dumps(ai_event)}\n\n"
 

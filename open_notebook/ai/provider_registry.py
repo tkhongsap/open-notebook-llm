@@ -25,7 +25,7 @@ the project so it stays importable from anywhere without cycles.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,10 @@ class ProviderSpec:
     display_name: str
     # Default modalities offered when creating a credential for this provider.
     modalities: Tuple[str, ...]
+    # Where inference runs from the user's perspective. ``local`` providers
+    # are user-controlled/self-hosted endpoints; ``cloud`` providers send
+    # requests to a vendor-managed service.
+    location: Literal["local", "cloud"] = "cloud"
     # Env var configuration for env-based setup/migration:
     # - required_env: ALL must be set for the provider to count as configured.
     # - required_any_env: at least ONE must be set.
@@ -222,6 +226,7 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
             name="ollama",
             display_name="Ollama",
             modalities=("language", "embedding"),
+            location="local",
             required_env=("OLLAMA_API_BASE",),
             test_model=None,  # Dynamic - uses first available model
         ),
@@ -229,6 +234,7 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
             name="omlx",
             display_name="oMLX",
             modalities=("language", "embedding"),
+            location="local",
             required_env=("OMLX_API_BASE",),
             optional_env=("OMLX_API_KEY",),
             test_model=None,  # Dynamic - uses first available model via /v1/models
@@ -268,6 +274,7 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
             name="openai_compatible",
             display_name="Local AI / OpenAI Compatible",
             modalities=_ALL_MODALITIES,
+            location="local",
             required_any_env=("OPENAI_COMPATIBLE_BASE_URL", "OPENAI_COMPATIBLE_API_KEY"),
             test_model=None,  # Dynamic - uses first available model
             docs_url="https://github.com/lfnovo/open-notebook/blob/main/docs/5-CONFIGURATION/openai-compatible.md",
@@ -276,6 +283,7 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
             name="anthropic_compatible",
             display_name="Anthropic Compatible",
             modalities=_LANGUAGE_ONLY,
+            location="local",
             required_env=(
                 "ANTHROPIC_COMPATIBLE_BASE_URL",
                 "ANTHROPIC_COMPATIBLE_API_KEY",
