@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from api.podcast_service import PodcastService
-from api.routers.podcasts import retry_podcast_episode
+from api.routers.podcasts import _retry_briefing_suffix, retry_podcast_episode
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.podcasts.models import EpisodeProfile, PodcastEpisode, SpeakerProfile
 
@@ -238,3 +238,38 @@ async def test_retry_keeps_failed_episode_when_replacement_cannot_queue() -> Non
     assert exc_info.value.status_code == 409
     failed_episode.delete.assert_not_awaited()
     delete_audio.assert_not_called()
+
+
+def test_retry_recovers_additional_briefing_instructions() -> None:
+    episode = PodcastEpisode(
+        name="Overview",
+        episode_profile={
+            "name": "overview",
+            "default_briefing": "Explain the selected evidence.",
+        },
+        speaker_profile={"name": "hosts"},
+        briefing=(
+            "Explain the selected evidence.\n\nAdditional instructions: "
+            "Focus on readiness gaps and do not add unsupported facts."
+        ),
+        content="Evidence",
+    )
+
+    assert _retry_briefing_suffix(episode) == (
+        "Focus on readiness gaps and do not add unsupported facts."
+    )
+
+
+def test_retry_does_not_duplicate_legacy_briefing() -> None:
+    episode = PodcastEpisode(
+        name="Overview",
+        episode_profile={
+            "name": "overview",
+            "default_briefing": "Explain the selected evidence.",
+        },
+        speaker_profile={"name": "hosts"},
+        briefing="A legacy custom briefing with no generated suffix marker.",
+        content="Evidence",
+    )
+
+    assert _retry_briefing_suffix(episode) is None

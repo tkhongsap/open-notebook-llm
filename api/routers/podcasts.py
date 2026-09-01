@@ -362,6 +362,25 @@ async def stream_podcast_episode_audio(episode_id: str):
     )
 
 
+def _retry_briefing_suffix(episode: PodcastEpisode) -> Optional[str]:
+    """Recover user-supplied briefing instructions from a stored episode.
+
+    PodcastService stores the rendered briefing rather than the original
+    suffix. Recover only the exact format produced by that service; legacy or
+    manually edited briefings remain untouched instead of being duplicated.
+    """
+    default_briefing = episode.episode_profile.get("default_briefing")
+    if not default_briefing or not episode.briefing:
+        return None
+
+    prefix = f"{default_briefing}\n\nAdditional instructions: "
+    if not episode.briefing.startswith(prefix):
+        return None
+
+    suffix = episode.briefing[len(prefix) :].strip()
+    return suffix or None
+
+
 @router.post("/podcasts/episodes/{episode_id}/retry")
 async def retry_podcast_episode(episode_id: str):
     """Retry a failed podcast episode by deleting it and submitting a new job"""
@@ -397,6 +416,7 @@ async def retry_podcast_episode(episode_id: str):
             episode_name=episode_name,
             content=content,
             notebook_ids=[str(value) for value in episode.notebook_ids],
+            briefing_suffix=_retry_briefing_suffix(episode),
         )
 
         # The replacement is durably queued; remove the failed episode and its

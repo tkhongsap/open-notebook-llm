@@ -335,6 +335,8 @@ class TestOrphanedProfileDoesNotPoisonConfig:
                 "id": "episode_profile:ep1",
                 "name": "Test Episode Profile",
                 "speaker_config": "speaker_profile:sp1",
+                "outline_llm": "model:llm",
+                "transcript_llm": "model:llm",
                 "default_briefing": "brief",
                 "num_segments": 3,
             },
@@ -343,11 +345,33 @@ class TestOrphanedProfileDoesNotPoisonConfig:
                 "id": "episode_profile:ep2",
                 "name": "Orphaned Profile",
                 "speaker_config": None,
+                "outline_llm": "model:llm",
+                "transcript_llm": "model:llm",
+                "default_briefing": "brief",
+                "num_segments": 3,
+            },
+            {
+                "id": "episode_profile:ep3",
+                "name": "Unconfigured Episode",
+                "speaker_config": "speaker_profile:sp1",
+                "outline_llm": None,
+                "transcript_llm": None,
                 "default_briefing": "brief",
                 "num_segments": 3,
             },
         ]
-        speaker_rows = [{"id": "speaker_profile:sp1", "name": "Tech Experts"}]
+        speaker_rows = [
+            {
+                "id": "speaker_profile:sp1",
+                "name": "Tech Experts",
+                "voice_model": "model:tts",
+            },
+            {
+                "id": "speaker_profile:sp2",
+                "name": "Unconfigured Speakers",
+                "voice_model": None,
+            },
+        ]
 
         async def fake_repo_query(query, *args, **kwargs):
             if "episode_profile" in query:
@@ -420,6 +444,10 @@ class TestOrphanedProfileDoesNotPoisonConfig:
         episode_config = configure_calls["episode_config"]["profiles"]
         # Orphaned profile removed instead of poisoning validation
         assert "Orphaned Profile" not in episode_config
+        # Unconfigured, unrelated profiles cannot poison global validation.
+        assert "Unconfigured Episode" not in episode_config
+        speaker_config = configure_calls["speakers_config"]["profiles"]
+        assert "Unconfigured Speakers" not in speaker_config
         # Record ID rewritten to the speaker profile NAME for podcast-creator
         assert (
             episode_config["Test Episode Profile"]["speaker_config"]
