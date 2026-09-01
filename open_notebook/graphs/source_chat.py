@@ -162,6 +162,9 @@ def _call_model_with_source_context_inner(
                     or state.get("model_override"),
                     "chat",
                     max_tokens=8192,
+                    openai_compatible_extra_body={
+                        "chat_template_kwargs": {"enable_thinking": False}
+                    },
                 )
             )
         finally:
@@ -186,6 +189,9 @@ def _call_model_with_source_context_inner(
                 or state.get("model_override"),
                 "chat",
                 max_tokens=8192,
+                openai_compatible_extra_body={
+                    "chat_template_kwargs": {"enable_thinking": False}
+                },
             )
         )
 

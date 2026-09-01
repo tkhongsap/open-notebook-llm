@@ -11,6 +11,7 @@ Comprehensive list of all environment variables available in Open Notebook.
 | `API_URL` | No | Same origin | Public URL where the browser reaches a separately exposed API. Leave unset to use the safer Next.js `/api` proxy. |
 | `INTERNAL_API_URL` | No | http://localhost:5055 | Internal API URL for Next.js server-side proxying |
 | `API_CLIENT_TIMEOUT` | No | 300 | Client timeout in seconds (how long to wait for API response) |
+| `INTERNAL_API_PROXY_TIMEOUT_MS` | No | 600000 | Next.js server-side `/api` rewrite timeout in milliseconds. Raise this together with `NEXT_PUBLIC_API_TIMEOUT_MS` for local model calls that need more than ten minutes. |
 | `OPEN_NOTEBOOK_PASSWORD` | No | None | Password to protect Open Notebook instance |
 | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | **Yes** | None | Secret string to encrypt credentials stored in database (any string works). **Required** for the credential system. Supports Docker secrets via `_FILE` suffix. |
 | `OPEN_NOTEBOOK_REQUIRE_SECURITY` | No | `false` | When true, fail startup unless encryption, login, database, and CORS settings meet the production security contract. Hosted templates enable this. |
@@ -65,6 +66,7 @@ Comprehensive list of all environment variables available in Open Notebook.
 | `ESPERANTO_LLM_TIMEOUT` | No | 60 | LLM inference timeout in seconds |
 | `ESPERANTO_SSL_VERIFY` | No | true | Verify SSL certificates (false = development only) |
 | `ESPERANTO_SSL_CA_BUNDLE` | No | None | Path to custom CA certificate bundle |
+| `OPEN_NOTEBOOK_TRANSFORMATION_MAX_TOKENS` | No | 2048 | Maximum output tokens for a source transformation such as Dense Summary. Lower this for slow local reasoning models so one transformation does not monopolize a sequential worker; valid range is 128-32768. |
 
 ---
 
