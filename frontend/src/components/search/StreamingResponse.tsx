@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { CheckCircle, Sparkles, Lightbulb, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
-import { convertReferencesToMarkdownLinks, createReferenceLinkComponent } from '@/lib/utils/source-references'
+import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent } from '@/lib/utils/source-references'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { toast } from 'sonner'
@@ -165,11 +165,11 @@ function FinalAnswerContent({
   content: string
   onReferenceClick: (type: string, id: string) => void
 }) {
-  // Convert references to markdown links
-  const markdownWithLinks = convertReferencesToMarkdownLinks(content)
+  // Render compact numbered citations and an exact clickable reference list.
+  const markdownWithLinks = convertReferencesToCompactMarkdown(content)
 
   // Create custom link component
-  const LinkComponent = createReferenceLinkComponent(onReferenceClick)
+  const LinkComponent = createCompactReferenceLinkComponent(onReferenceClick)
 
   return (
     <MarkdownRenderer components={{

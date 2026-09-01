@@ -507,6 +507,7 @@ export const itIT = {
     vectorSearchWarning: "La ricerca vettoriale richiede un modello di embedding. Solo la ricerca testuale è disponibile.",
     textSearch: "Ricerca testuale",
     vectorSearch: "Ricerca vettoriale",
+    hybridSearch: "Ricerca ibrida (consigliata)",
     searchIn: "Cerca In",
     searchSources: "Cerca nelle fonti",
     searchNotes: "Cerca nelle note",

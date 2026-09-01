@@ -507,6 +507,7 @@ export const plPL = {
     vectorSearchWarning: "Wyszukiwanie wektorowe wymaga modelu osadzania. Dostępne jest tylko wyszukiwanie tekstowe.",
     textSearch: "Wyszukiwanie tekstowe",
     vectorSearch: "Wyszukiwanie wektorowe",
+    hybridSearch: "Wyszukiwanie hybrydowe (zalecane)",
     searchIn: "Szukaj w",
     searchSources: "Przeszukaj źródła",
     searchNotes: "Przeszukaj notatki",

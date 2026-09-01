@@ -507,6 +507,7 @@ export const esES = {
     vectorSearchWarning: "La búsqueda vectorial requiere un modelo de embedding. Solo la búsqueda de texto está disponible.",
     textSearch: "Búsqueda de texto",
     vectorSearch: "Búsqueda vectorial",
+    hybridSearch: "Búsqueda híbrida (recomendada)",
     searchIn: "Buscar en",
     searchSources: "Buscar fuentes",
     searchNotes: "Buscar notas",

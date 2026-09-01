@@ -507,6 +507,7 @@ export const zhTW = {
     vectorSearchWarning: "向量搜尋需要嵌入模型。目前僅文本搜尋可用。",
     textSearch: "文本搜尋",
     vectorSearch: "向量搜尋",
+    hybridSearch: "混合搜尋（建議）",
     searchIn: "搜尋範圍",
     searchSources: "搜尋來源",
     searchNotes: "搜尋筆記",

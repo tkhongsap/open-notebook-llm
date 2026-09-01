@@ -510,6 +510,7 @@ export const deDE = {
     vectorSearchWarning: "Vektorsuche benötigt ein Embedding-Modell. Es ist nur Textsuche verfügbar.",
     textSearch: "Textsuche",
     vectorSearch: "Vektorsuche",
+    hybridSearch: "Hybridsuche (empfohlen)",
     searchIn: "Suchen in",
     searchSources: "Quellen durchsuchen",
     searchNotes: "Notizen durchsuchen",

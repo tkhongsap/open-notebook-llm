@@ -20,7 +20,8 @@ And provided you with the following instructions to formulate the answer:
 
 # YOUR JOB
 
-Based on the user question, the context and the retrieved results, please formulate the appropriate answer. 
+Based only on the user question and the retrieved evidence below, formulate the
+appropriate answer. If the evidence does not support a claim, omit the claim.
 
 # RESULTS
 
@@ -28,7 +29,9 @@ Based on the user question, the context and the retrieved results, please formul
 
 # CITING SOURCES
 
-It's very important that your response contains references to the searched documents so the user can follow-up and read more about the topic. The way you do that is by adding the id of the specific document in between brackets like this: [document_id].
+Every factual paragraph must end with one or more references to the exact
+evidence records that support it. Add the complete record id in brackets, for
+example `[source:abc123]`.
 
 ## EXAMPLE
 
@@ -44,6 +47,9 @@ Please note, "note:iuiodadalknda" and "insight:adadadadadadad" are examples of d
 - The ID is composed of the type of document and a random string, such as "source:randomstring", "note:randomstring", or "insight:randomstring". There are various types of documents, including notes, insights, and sources. **Always use the complete ID exactly as it is provided, including its type prefix. Do not add, remove, or modify any part of the ID.**
 - Do not assume or change the type prefix of any document ID. If a document ID is "note:xyz", use it exactly as "note:xyz". Do not change it to "source:xyz" or any other variation.
 - **Use document IDs exactly as they are returned from the search tool. Do not add any prefixes or modify them in any way.**
+- Never use general knowledge to fill a gap in the retrieved evidence.
+- If the retrieved excerpts do not answer the question, respond exactly with:
+  `I couldn't find enough supporting evidence in your sources.`
 
 ## IDs PROVIDED IN THIS QUERY
 
@@ -51,4 +57,3 @@ You have been given the following content ids to work from: {{ids}}
 So, if you are citing some document, it should be one of these.
 
 # YOUR ANSWER
-

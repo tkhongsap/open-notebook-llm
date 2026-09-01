@@ -1,6 +1,6 @@
 # Search Effectively - Finding What You Need
 
-Search is your gateway into your research. This guide covers two search modes and when to use each.
+Search is your gateway into your research. This guide covers three search modes and when to use each.
 
 ---
 
@@ -21,11 +21,20 @@ But you can do much better...
 
 ---
 
-## Two Search Modes Explained
+## Three Search Modes Explained
 
-Open Notebook has two fundamentally different search approaches.
+### Search Type 1: HYBRID SEARCH (Recommended)
 
-### Search Type 1: TEXT SEARCH (Keyword Matching)
+Hybrid search runs keyword and semantic retrieval together, removes duplicate
+records, combines their ranks, and reranks the evidence against your exact
+query. It is the best default when an embedding model is configured because it
+can recover both rare exact terms and conceptual matches.
+
+Results show the exact evidence excerpts that contributed to ranking. If the
+embedding provider is temporarily unreachable, hybrid retrieval keeps the
+healthy keyword results instead of losing the entire search.
+
+### Search Type 2: TEXT SEARCH (Keyword Matching)
 
 **How it works:**
 - You search for words: "transformer"
@@ -66,7 +75,7 @@ Ranked by how close together they are
 
 ---
 
-### Search Type 2: VECTOR SEARCH (Semantic/Concept Matching)
+### Search Type 3: VECTOR SEARCH (Semantic/Concept Matching)
 
 **How it works:**
 - Your search converted to embedding (vector)
@@ -109,27 +118,30 @@ But all are semantically related
 
 ---
 
-## Decision: Text Search vs. Vector Search?
+## Decision: Which Search Type?
 
 ```
-Question: "Do I remember the exact words?"
+Question: "Do I need one specialized retrieval mode?"
 
-→ YES: Use TEXT SEARCH
+→ NO / UNSURE: Use HYBRID SEARCH
+   Example: "Find everything relevant to the Harborlight budget"
+
+→ EXACT WORDS ONLY: Use TEXT SEARCH
    Example: "I remember the paper said 'attention is all you need'"
 
-→ NO: Use VECTOR SEARCH
+→ CONCEPTUAL DISCOVERY ONLY: Use VECTOR SEARCH
    Example: "I'm looking for content about how models process information"
-
-→ UNSURE: Try TEXT SEARCH first (faster)
-         If no results, try VECTOR SEARCH
-
-Text search: "I know what I'm looking for"
-Vector search: "I'm exploring an idea"
 ```
 
 ---
 
 ## Step-by-Step: Using Each Search
+
+### Hybrid Search
+
+Choose **Hybrid Search (recommended)**, enter a natural-language query, and
+open any result to inspect its exact source or note. Hybrid search requires a
+configured embedding model.
 
 ### Text Search
 
@@ -185,18 +197,24 @@ Stage 3: PARALLEL SEARCHES
   → Search 2: "Approach in paper B"
   (Multiple searches happen at once)
 
+  Each search uses hybrid retrieval, deduplication, and reranking.
+
 Stage 4: ANALYSIS & SYNTHESIS
   → Per-result analysis: "Based on paper A, the approach is..."
   → Per-result analysis: "Based on paper B, the approach is..."
   → Final synthesis: "Comparing A and B: A differs from B in..."
 
-Result: Comprehensive answer, not just search results
+Result: A grounded answer with compact numbered citations. Every citation is
+validated against retrieved evidence and opens the exact source, note, or
+insight. If no cited evidence supports an answer, Ask says that evidence is
+insufficient instead of returning an uncited answer.
 ```
 
 ### When to Use Ask vs. Simple Search
 
 | Task | Use | Why |
 |------|-----|-----|
+| "Find the best evidence for X" | **HYBRID SEARCH** | Exact + semantic coverage |
 | "Find the quote about X" | **TEXT SEARCH** | Need exact words |
 | "What does source A say about X?" | **TEXT SEARCH** | Direct, fast answer |
 | "Find content about X" | **VECTOR SEARCH** | Semantic discovery |

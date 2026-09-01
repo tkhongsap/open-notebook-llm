@@ -14,23 +14,27 @@ from open_notebook.exceptions import (
     OpenNotebookError,
 )
 from open_notebook.graphs.ask import graph as ask_graph
+from open_notebook.retrieval import hybrid_search
 
 router = APIRouter()
 
 
 @router.post("/search", response_model=SearchResponse)
 async def search_knowledge_base(search_request: SearchRequest):
-    """Search the knowledge base using text or vector search."""
+    """Search the knowledge base using text, vector, or hybrid retrieval."""
     try:
-        if search_request.type == "vector":
-            # Check if embedding model is available for vector search
+        if search_request.type in {"vector", "hybrid"}:
+            # Semantic and hybrid search both require query embeddings.
             if not await model_manager.get_embedding_model():
                 raise HTTPException(
                     status_code=400,
-                    detail="Vector search requires an embedding model. Please configure one in the Models section.",
+                    detail=f"{search_request.type.title()} search requires an embedding model. Please configure one in the Models section.",
                 )
 
-            results = await vector_search(
+            search_function = (
+                hybrid_search if search_request.type == "hybrid" else vector_search
+            )
+            results = await search_function(
                 keyword=search_request.query,
                 results=search_request.limit,
                 source=search_request.search_sources,

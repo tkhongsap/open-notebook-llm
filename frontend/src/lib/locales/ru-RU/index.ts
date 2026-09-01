@@ -507,6 +507,7 @@ export const ruRU = {
     vectorSearchWarning: "Векторный поиск требует модель эмбеддинга. Доступен только текстовый поиск.",
     textSearch: "Текстовый поиск",
     vectorSearch: "Векторный поиск",
+    hybridSearch: "Гибридный поиск (рекомендуется)",
     searchIn: "Искать в",
     searchSources: "Искать в источниках",
     searchNotes: "Искать в заметках",

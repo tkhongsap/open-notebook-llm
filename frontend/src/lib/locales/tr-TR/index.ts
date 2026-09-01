@@ -507,6 +507,7 @@ export const trTR = {
     vectorSearchWarning: "Vektör araması için gömme modeli gereklidir. Yalnızca metin araması kullanılabilir.",
     textSearch: "Metin Araması",
     vectorSearch: "Vektör Araması",
+    hybridSearch: "Hibrit Arama (önerilen)",
     searchIn: "Şurada Ara",
     searchSources: "Kaynaklarda Ara",
     searchNotes: "Notlarda Ara",

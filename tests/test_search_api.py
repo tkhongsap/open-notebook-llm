@@ -41,6 +41,56 @@ class TestSearchLimitValidation:
         mock_text_search.assert_awaited_once()
 
 
+class TestHybridSearchAPI:
+    @patch("api.routers.search.hybrid_search", new_callable=AsyncMock)
+    @patch(
+        "api.routers.search.model_manager.get_embedding_model", new_callable=AsyncMock
+    )
+    def test_hybrid_search_returns_fused_results(
+        self, mock_embedding_model, mock_hybrid_search, client
+    ):
+        mock_embedding_model.return_value = object()
+        mock_hybrid_search.return_value = [
+            {
+                "id": "source:grounded",
+                "parent_id": "source:grounded",
+                "title": "Grounded",
+                "matches": ["evidence"],
+                "final_score": 0.91,
+            }
+        ]
+
+        response = client.post(
+            "/api/search",
+            json={"query": "grounded", "type": "hybrid", "limit": 5},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["search_type"] == "hybrid"
+        assert response.json()["results"][0]["final_score"] == 0.91
+        mock_hybrid_search.assert_awaited_once_with(
+            keyword="grounded",
+            results=5,
+            source=True,
+            note=True,
+            minimum_score=0.2,
+        )
+
+    @patch(
+        "api.routers.search.model_manager.get_embedding_model", new_callable=AsyncMock
+    )
+    def test_hybrid_search_requires_embedding_model(self, mock_embedding_model, client):
+        mock_embedding_model.return_value = None
+
+        response = client.post(
+            "/api/search",
+            json={"query": "grounded", "type": "hybrid", "limit": 5},
+        )
+
+        assert response.status_code == 400
+        assert "Hybrid search requires an embedding model" in response.json()["detail"]
+
+
 class TestTextSearchHighlightOverflowFallback:
     """text_search() must fall back to vector search on a highlight position overflow (#648)."""
 
@@ -53,7 +103,10 @@ class TestTextSearchHighlightOverflowFallback:
         )
         with (
             patch.object(
-                notebook_module, "repo_query", new_callable=AsyncMock, side_effect=overflow
+                notebook_module,
+                "repo_query",
+                new_callable=AsyncMock,
+                side_effect=overflow,
             ),
             patch.object(
                 notebook_module,
@@ -75,7 +128,10 @@ class TestTextSearchHighlightOverflowFallback:
         overflow = RuntimeError("position overflow: 1 - len: 0")
         with (
             patch.object(
-                notebook_module, "repo_query", new_callable=AsyncMock, side_effect=overflow
+                notebook_module,
+                "repo_query",
+                new_callable=AsyncMock,
+                side_effect=overflow,
             ),
             patch.object(
                 notebook_module,

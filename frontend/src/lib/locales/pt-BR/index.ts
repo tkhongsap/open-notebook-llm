@@ -507,6 +507,7 @@ export const ptBR = {
     vectorSearchWarning: "Busca vetorial requer um modelo de embedding. Apenas busca por texto está disponível.",
     textSearch: "Busca por Texto",
     vectorSearch: "Busca Vetorial",
+    hybridSearch: "Busca Híbrida (recomendada)",
     searchIn: "Buscar Em",
     searchSources: "Buscar Fontes",
     searchNotes: "Buscar Notas",

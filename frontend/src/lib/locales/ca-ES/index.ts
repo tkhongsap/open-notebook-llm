@@ -507,6 +507,7 @@ export const caES = {
     vectorSearchWarning: "La cerca vectorial requereix un model d'incrustació. Només està disponible la cerca de text.",
     textSearch: "Cerca de text",
     vectorSearch: "Cerca vectorial",
+    hybridSearch: "Cerca híbrida (recomanada)",
     searchIn: "Cerca a",
     searchSources: "Cerca a les fonts",
     searchNotes: "Cerca a les notes",
