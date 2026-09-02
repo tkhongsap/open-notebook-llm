@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Install and manage the pinned native SurrealDB used for local development.
+"""Install and manage the pinned native SurrealDB runtime.
 
 Docker remains the production/deployment contract. This helper exists for macOS
-developer machines where Docker is unavailable. The downloaded archive is
-verified before extraction and every listener is bound to loopback.
+developer machines where Docker is unavailable and for the Replit deployment
+launcher, whose managed runtime does not execute this repository's Dockerfile.
+The downloaded archive is verified before extraction and every listener is
+bound to loopback.
 """
 
 from __future__ import annotations
@@ -44,6 +46,10 @@ SUPPORTED_ASSETS = {
         filename="surreal-v2.6.5.darwin-arm64.tgz",
         sha256="71d031be990d59ed57e41e147fda7463660a2b449ae91868c83eb0888d07fade",
     ),
+    ("Linux", "x86_64"): Asset(
+        filename="surreal-v2.6.5.linux-amd64.tgz",
+        sha256="929d73f46c4fb59f237810e6fe6da54c1756064f3ed8d7d1f6a970e8fdf38fb0",
+    ),
 }
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -66,7 +72,7 @@ def select_asset(system: str | None = None, machine: str | None = None) -> Asset
     except KeyError as exc:
         raise RuntimeError(
             f"Native SurrealDB bootstrap is not supported on {key[0]} {key[1]}. "
-            "Install SurrealDB v2 manually or use Docker Compose."
+            "Install the pinned SurrealDB v2 binary manually or use Docker Compose."
         ) from exc
 
 

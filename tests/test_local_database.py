@@ -14,6 +14,15 @@ def test_select_asset_is_pinned_for_apple_silicon():
     assert len(asset.sha256) == 64
 
 
+def test_select_asset_is_pinned_for_replit_linux():
+    asset = local_database.select_asset("Linux", "x86_64")
+
+    assert asset.filename == "surreal-v2.6.5.linux-amd64.tgz"
+    assert asset.sha256 == (
+        "929d73f46c4fb59f237810e6fe6da54c1756064f3ed8d7d1f6a970e8fdf38fb0"
+    )
+
+
 def test_select_asset_rejects_unverified_platform():
     with pytest.raises(RuntimeError, match="not supported"):
         local_database.select_asset("Plan9", "mips")
