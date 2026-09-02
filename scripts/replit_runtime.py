@@ -170,9 +170,15 @@ def service_definitions(environment: Mapping[str, str]) -> tuple[Service, ...]:
     node = shutil.which("node")
     if not node:
         raise RuntimeError("Missing Node.js runtime")
-    frontend_entrypoint = FRONTEND_ROOT / "start-server.js"
-    standalone_server = FRONTEND_ROOT / ".next" / "standalone" / "server.js"
-    if not frontend_entrypoint.is_file() or not standalone_server.is_file():
+    next_cli = FRONTEND_ROOT / "node_modules" / "next" / "dist" / "bin" / "next"
+    build_id = FRONTEND_ROOT / ".next" / "BUILD_ID"
+    static_assets = FRONTEND_ROOT / ".next" / "static"
+    if (
+        not next_cli.is_file()
+        or not os.access(next_cli, os.X_OK)
+        or not build_id.is_file()
+        or not static_assets.is_dir()
+    ):
         raise RuntimeError("Missing production frontend build; run the Replit build command")
 
     database_path = Path(environment["SURREAL_DATA_PATH"])
@@ -212,7 +218,11 @@ def service_definitions(environment: Mapping[str, str]) -> tuple[Service, ...]:
         ),
         Service(
             name="frontend",
-            command=(node, str(frontend_entrypoint)),
+            # Replit retains the source-tree build layout. ``next start`` serves
+            # ``.next/static`` from that layout, while the standalone server
+            # expects Docker's copied runtime layout and otherwise returns 404
+            # for every browser chunk.
+            command=(node, str(next_cli), "start"),
             cwd=FRONTEND_ROOT,
             ready_url=f"http://127.0.0.1:{port}/healthz",
         ),

@@ -87,7 +87,12 @@ def test_replit_service_graph_does_not_put_secrets_in_arguments(
         executable.chmod(0o755)
     (frontend / ".next" / "standalone").mkdir(parents=True)
     (frontend / ".next" / "standalone" / "server.js").write_text("", encoding="utf-8")
-    (frontend / "start-server.js").write_text("", encoding="utf-8")
+    (frontend / ".next" / "BUILD_ID").write_text("build-id", encoding="utf-8")
+    (frontend / ".next" / "static").mkdir()
+    next_cli = frontend / "node_modules" / "next" / "dist" / "bin" / "next"
+    next_cli.parent.mkdir(parents=True)
+    next_cli.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    next_cli.chmod(0o755)
 
     monkeypatch.setattr(replit_runtime, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(replit_runtime, "FRONTEND_ROOT", frontend)
@@ -108,6 +113,7 @@ def test_replit_service_graph_does_not_put_secrets_in_arguments(
     assert environment["SURREAL_PASSWORD"] not in arguments
     assert environment["OPENROUTER_API_KEY"] not in arguments
     assert services[-1].ready_url == "http://127.0.0.1:8502/healthz"
+    assert services[-1].command == ("/usr/bin/node", str(next_cli), "start")
 
 
 def test_replit_service_graph_honors_uv_project_environment(
@@ -128,7 +134,12 @@ def test_replit_service_graph_honors_uv_project_environment(
     (frontend / ".next" / "standalone" / "server.js").write_text(
         "", encoding="utf-8"
     )
-    (frontend / "start-server.js").write_text("", encoding="utf-8")
+    (frontend / ".next" / "BUILD_ID").write_text("build-id", encoding="utf-8")
+    (frontend / ".next" / "static").mkdir()
+    next_cli = frontend / "node_modules" / "next" / "dist" / "bin" / "next"
+    next_cli.parent.mkdir(parents=True)
+    next_cli.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    next_cli.chmod(0o755)
 
     monkeypatch.setattr(replit_runtime, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(replit_runtime, "FRONTEND_ROOT", frontend)
@@ -211,4 +222,19 @@ def test_replit_build_validation_requires_frontend_and_ffmpeg(
 ):
     monkeypatch.setattr(replit_build.shutil, "which", lambda name: "/nix/store/ffmpeg")
     with pytest.raises(RuntimeError, match="standalone"):
+        replit_build.validate_build_artifacts(tmp_path)
+
+
+def test_replit_build_validation_requires_source_tree_static_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(replit_build.shutil, "which", lambda name: "/nix/store/ffmpeg")
+    standalone = tmp_path / "frontend" / ".next" / "standalone" / "server.js"
+    standalone.parent.mkdir(parents=True)
+    standalone.write_text("", encoding="utf-8")
+    (tmp_path / "frontend" / ".next" / "BUILD_ID").write_text(
+        "build-id", encoding="utf-8"
+    )
+
+    with pytest.raises(RuntimeError, match="production assets"):
         replit_build.validate_build_artifacts(tmp_path)
