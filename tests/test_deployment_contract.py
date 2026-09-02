@@ -47,3 +47,14 @@ def test_local_compose_does_not_publish_database_or_api_broadly():
 
     assert compose["services"]["surrealdb"]["ports"] == ["127.0.0.1:8000:8000"]
     assert "127.0.0.1:5055:5055" in compose["services"]["open_notebook"]["ports"]
+
+
+def test_ghcr_workflows_publish_to_the_current_repository_namespace():
+    for relative_path in (
+        ".github/workflows/build-dev.yml",
+        ".github/workflows/build-and-release.yml",
+    ):
+        workflow = yaml.safe_load((ROOT / relative_path).read_text(encoding="utf-8"))
+
+        assert workflow["permissions"]["packages"] == "write"
+        assert workflow["env"]["GHCR_IMAGE"] == "ghcr.io/${{ github.repository }}"
