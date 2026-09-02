@@ -45,6 +45,8 @@ if any one exits:
 3. the continuously running source/podcast command worker;
 4. public Next.js on Replit's mapped port `8502`.
 
+The checked-in `.replit` maps only port `8502` to public port `80`, preventing
+stale import-time port detection from routing Preview to a different process.
 Only the Next.js port is public. The launcher derives explicit CORS origins
 from `REPLIT_DOMAINS`/`REPLIT_DEV_DOMAIN`, enables strict production security,
 and enforces `OPEN_NOTEBOOK_MODEL_ROUTING_POLICY=cloud-only`. Attempts to set
