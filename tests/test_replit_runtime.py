@@ -165,7 +165,7 @@ def test_replit_configuration_builds_and_runs_the_full_stack():
     assert "npm ci" in configuration["deployment"]["build"]
     assert "npm run build" in configuration["deployment"]["build"]
     assert configuration["deployment"]["run"][-1] == "scripts/replit_runtime.py"
-    assert configuration["ports"] == [{"localPort": 8502, "externalPort": 80}]
+    assert "ports" not in configuration
     assert "ffmpeg" in (ROOT / "replit.nix").read_text(encoding="utf-8")
 
 

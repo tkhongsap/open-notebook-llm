@@ -9,7 +9,3 @@ run = ["uv", "run", "--no-sync", "python", "scripts/replit_runtime.py"]
 
 [gitHubImport]
 requiredFiles = [".replit", "replit.nix"]
-
-[[ports]]
-localPort = 8502
-externalPort = 80

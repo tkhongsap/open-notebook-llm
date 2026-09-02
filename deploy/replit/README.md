@@ -78,9 +78,9 @@ If the final public domain cannot be read from Replit's environment, set
 5. Choose a **Reserved VM** deployment. The worker must remain available while
    source and podcast jobs are queued; Autoscale can suspend it between web
    requests.
-6. Map the public web port to `8502`, add the published app secrets, publish,
-   and repeat the `/healthz`, authentication, source, chat, and podcast checks
-   at the `replit.app` URL.
+6. Confirm Replit auto-detects the public listener on port `8502`, add the
+   published app secrets, publish, and repeat the `/healthz`, authentication,
+   source, chat, and podcast checks at the `replit.app` URL.
 
 ## Durability and scaling boundary
 
