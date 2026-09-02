@@ -87,7 +87,12 @@ def test_replit_service_graph_does_not_put_secrets_in_arguments(
         executable.chmod(0o755)
     (frontend / ".next" / "standalone").mkdir(parents=True)
     (frontend / ".next" / "standalone" / "server.js").write_text("", encoding="utf-8")
-    (frontend / "start-server.js").write_text("", encoding="utf-8")
+    (frontend / ".next" / "BUILD_ID").write_text("build-id", encoding="utf-8")
+    (frontend / ".next" / "static").mkdir()
+    next_cli = frontend / "node_modules" / "next" / "dist" / "bin" / "next"
+    next_cli.parent.mkdir(parents=True)
+    next_cli.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    next_cli.chmod(0o755)
 
     monkeypatch.setattr(replit_runtime, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(replit_runtime, "FRONTEND_ROOT", frontend)
@@ -108,6 +113,49 @@ def test_replit_service_graph_does_not_put_secrets_in_arguments(
     assert environment["SURREAL_PASSWORD"] not in arguments
     assert environment["OPENROUTER_API_KEY"] not in arguments
     assert services[-1].ready_url == "http://127.0.0.1:8502/healthz"
+    assert services[-1].command == ("/usr/bin/node", str(next_cli), "start")
+
+
+def test_replit_service_graph_honors_uv_project_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    frontend = tmp_path / "frontend"
+    environment_bin = tmp_path / ".pythonlibs" / "bin"
+    database = tmp_path / ".runtime" / "surrealdb" / "bin" / "surreal"
+    for executable in (
+        environment_bin / "python",
+        environment_bin / "surreal-commands-worker",
+        database,
+    ):
+        executable.parent.mkdir(parents=True, exist_ok=True)
+        executable.write_text("#!/bin/sh\n", encoding="utf-8")
+        executable.chmod(0o755)
+    (frontend / ".next" / "standalone").mkdir(parents=True)
+    (frontend / ".next" / "standalone" / "server.js").write_text(
+        "", encoding="utf-8"
+    )
+    (frontend / ".next" / "BUILD_ID").write_text("build-id", encoding="utf-8")
+    (frontend / ".next" / "static").mkdir()
+    next_cli = frontend / "node_modules" / "next" / "dist" / "bin" / "next"
+    next_cli.parent.mkdir(parents=True)
+    next_cli.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    next_cli.chmod(0o755)
+
+    monkeypatch.setattr(replit_runtime, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(replit_runtime, "FRONTEND_ROOT", frontend)
+    monkeypatch.setattr(local_database, "BINARY_PATH", database)
+    monkeypatch.setattr(replit_runtime.shutil, "which", lambda name: "/usr/bin/node")
+    environment = replit_runtime.validated_environment(
+        secure_environment(UV_PROJECT_ENVIRONMENT=".pythonlibs")
+    )
+    environment["SURREAL_DATA_PATH"] = str(tmp_path / "data" / "database.db")
+
+    services = replit_runtime.service_definitions(environment)
+
+    assert services[1].command[0] == str(environment_bin / "python")
+    assert services[2].command[0] == str(
+        environment_bin / "surreal-commands-worker"
+    )
 
 
 def test_replit_frontend_and_database_receive_only_required_secrets():
@@ -165,7 +213,7 @@ def test_replit_configuration_builds_and_runs_the_full_stack():
     assert "npm ci" in configuration["deployment"]["build"]
     assert "npm run build" in configuration["deployment"]["build"]
     assert configuration["deployment"]["run"][-1] == "scripts/replit_runtime.py"
-    assert "ports" not in configuration
+    assert configuration["ports"] == [{"localPort": 8502, "externalPort": 80}]
     assert "ffmpeg" in (ROOT / "replit.nix").read_text(encoding="utf-8")
 
 
@@ -174,4 +222,19 @@ def test_replit_build_validation_requires_frontend_and_ffmpeg(
 ):
     monkeypatch.setattr(replit_build.shutil, "which", lambda name: "/nix/store/ffmpeg")
     with pytest.raises(RuntimeError, match="standalone"):
+        replit_build.validate_build_artifacts(tmp_path)
+
+
+def test_replit_build_validation_requires_source_tree_static_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(replit_build.shutil, "which", lambda name: "/nix/store/ffmpeg")
+    standalone = tmp_path / "frontend" / ".next" / "standalone" / "server.js"
+    standalone.parent.mkdir(parents=True)
+    standalone.write_text("", encoding="utf-8")
+    (tmp_path / "frontend" / ".next" / "BUILD_ID").write_text(
+        "build-id", encoding="utf-8"
+    )
+
+    with pytest.raises(RuntimeError, match="production assets"):
         replit_build.validate_build_artifacts(tmp_path)

@@ -23,6 +23,10 @@ def validate_build_artifacts(root: Path = REPO_ROOT) -> None:
     standalone_server = root / "frontend" / ".next" / "standalone" / "server.js"
     if not standalone_server.is_file():
         raise RuntimeError("Next.js standalone build is missing")
+    build_id = root / "frontend" / ".next" / "BUILD_ID"
+    static_assets = root / "frontend" / ".next" / "static"
+    if not build_id.is_file() or not static_assets.is_dir():
+        raise RuntimeError("Next.js source-tree production assets are missing")
 
 
 def main() -> int:

@@ -32,6 +32,11 @@ The Replit build command:
   its committed SHA-256 digest;
 - pre-caches the tokenizer and verifies that `ffmpeg` is available.
 
+Replit sets `UV_PROJECT_ENVIRONMENT` to its managed `.pythonlibs` directory.
+The supervisor honors that value instead of assuming uv created `.venv`, so
+Preview and deployed runs use the same pinned Python environment produced by
+the build command.
+
 The run command starts these processes in order and fails the whole deployment
 if any one exits:
 
@@ -40,6 +45,8 @@ if any one exits:
 3. the continuously running source/podcast command worker;
 4. public Next.js on Replit's mapped port `8502`.
 
+The checked-in `.replit` maps only port `8502` to public port `80`, preventing
+stale import-time port detection from routing Preview to a different process.
 Only the Next.js port is public. The launcher derives explicit CORS origins
 from `REPLIT_DOMAINS`/`REPLIT_DEV_DOMAIN`, enables strict production security,
 and enforces `OPEN_NOTEBOOK_MODEL_ROUTING_POLICY=cloud-only`. Attempts to set
