@@ -1,0 +1,15 @@
+modules = ["nodejs-22", "python-base-3.12"]
+
+[run]
+args = ["uv", "run", "--no-sync", "python", "scripts/replit_runtime.py"]
+
+[deployment]
+build = "uv sync --frozen --no-dev && cd frontend && npm ci && npm run build && cd .. && uv run --no-sync python scripts/replit_build.py"
+run = ["uv", "run", "--no-sync", "python", "scripts/replit_runtime.py"]
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix"]
+
+[[ports]]
+localPort = 8502
+externalPort = 80
