@@ -32,6 +32,11 @@ The Replit build command:
   its committed SHA-256 digest;
 - pre-caches the tokenizer and verifies that `ffmpeg` is available.
 
+Replit sets `UV_PROJECT_ENVIRONMENT` to its managed `.pythonlibs` directory.
+The supervisor honors that value instead of assuming uv created `.venv`, so
+Preview and deployed runs use the same pinned Python environment produced by
+the build command.
+
 The run command starts these processes in order and fails the whole deployment
 if any one exits:
 

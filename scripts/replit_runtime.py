@@ -149,12 +149,21 @@ def _require_executable(path: Path, description: str) -> str:
     return str(path)
 
 
+def _project_environment(environment: Mapping[str, str]) -> Path:
+    """Return uv's configured project environment, relative to the repository."""
+
+    configured = (environment.get("UV_PROJECT_ENVIRONMENT") or ".venv").strip()
+    path = Path(configured).expanduser()
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
 def service_definitions(environment: Mapping[str, str]) -> tuple[Service, ...]:
     """Return the four-process Replit service graph in startup order."""
 
-    python = _require_executable(REPO_ROOT / ".venv" / "bin" / "python", "Python runtime")
+    environment_bin = _project_environment(environment) / "bin"
+    python = _require_executable(environment_bin / "python", "Python runtime")
     worker = _require_executable(
-        REPO_ROOT / ".venv" / "bin" / "surreal-commands-worker",
+        environment_bin / "surreal-commands-worker",
         "command worker",
     )
     database = _require_executable(local_database.BINARY_PATH, "SurrealDB runtime")
