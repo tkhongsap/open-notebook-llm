@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import tomllib
+import urllib.error
+from email.message import Message
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -113,6 +116,7 @@ def test_replit_frontend_and_database_receive_only_required_secrets():
     frontend = replit_runtime.environment_for_service("frontend", environment)
     database = replit_runtime.environment_for_service("database", environment)
     api = replit_runtime.environment_for_service("api", environment)
+    worker = replit_runtime.environment_for_service("worker", environment)
 
     assert "OPENROUTER_API_KEY" not in frontend
     assert "OPEN_NOTEBOOK_PASSWORD" not in frontend
@@ -121,6 +125,35 @@ def test_replit_frontend_and_database_receive_only_required_secrets():
     assert database["SURREAL_PASS"] == environment["SURREAL_PASSWORD"]
     assert api["OPENROUTER_API_KEY"] == environment["OPENROUTER_API_KEY"]
     assert "SURREAL_PASS" not in api
+    assert worker["OPENROUTER_API_KEY"] == environment["OPENROUTER_API_KEY"]
+    assert "OPEN_NOTEBOOK_PASSWORD" not in worker
+    assert "SURREAL_PASS" not in worker
+
+
+def test_replit_readiness_requires_a_successful_response(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    response = MagicMock()
+    response.__enter__.return_value.status = 204
+    monkeypatch.setattr(replit_runtime.urllib.request, "urlopen", lambda *args, **kwargs: response)
+
+    assert replit_runtime._url_is_ready("http://127.0.0.1:8502/healthz") is True
+
+
+def test_replit_readiness_rejects_auth_and_server_errors(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    for status in (401, 503):
+        error = urllib.error.HTTPError(
+            "http://127.0.0.1:8502/healthz", status, "not ready", Message(), None
+        )
+        monkeypatch.setattr(
+            replit_runtime.urllib.request,
+            "urlopen",
+            lambda *args, error=error, **kwargs: (_ for _ in ()).throw(error),
+        )
+
+        assert replit_runtime._url_is_ready("http://127.0.0.1:8502/healthz") is False
 
 
 def test_replit_configuration_builds_and_runs_the_full_stack():

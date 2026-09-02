@@ -219,9 +219,9 @@ def _tcp_is_ready(port: int) -> bool:
 def _url_is_ready(url: str) -> bool:
     try:
         with urllib.request.urlopen(url, timeout=2) as response:  # noqa: S310
-            return response.status < 500
-    except urllib.error.HTTPError as exc:
-        return exc.code < 500
+            return 200 <= response.status < 400
+    except urllib.error.HTTPError:
+        return False
     except (urllib.error.URLError, TimeoutError):
         return False
 
@@ -294,6 +294,9 @@ def environment_for_service(
             "SURREAL_PASS",
         ):
             scoped.pop(key, None)
+    elif service_name == "worker":
+        scoped.pop("OPEN_NOTEBOOK_PASSWORD", None)
+        scoped.pop("SURREAL_PASS", None)
     else:
         # The application uses SURREAL_PASSWORD. SURREAL_PASS exists only for
         # the database binary and does not need to be duplicated here.
